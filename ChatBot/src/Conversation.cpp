@@ -10,25 +10,6 @@ void Conversation::setDisplayName(const std::string& name) {
     display_name = name; 
 }
 
-std::string Conversation::getDisplayName() const { 
-    return display_name; 
-}
-
-void Conversation::changePersonality(const std::string& prompt) {
-    if(db) {
-        db->setSystemPrompt(session_id, prompt);
-        loadSystemPrompt();
-        std::cout << "[系统] 已更新为: " << prompt << std::endl;
-    }
-}
-
-std::string Conversation::GetCurrentPersonality() {
-    if(db) {
-        return db->getRawSystemPrompt(session_id);
-    }
-    return "";
-}
-
 void Conversation::initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid) {
     db = database;
     session_id = sid;
@@ -116,42 +97,35 @@ void Conversation::loadFromDatabase() {
 void Conversation::add_user_message(const std::string& content) {
     messages.push_back({{"role", "user"}, {"content", content}});
     trim_messages();
-    
     if (db) {
         int turn_id = db->getMaxTurnId(session_id) + 1;
         db->saveMessage(session_id, "user", content, turn_id);
+
+        auto emb = get_embedding(content);
+        if (!emb.empty()) {
+            int msg_id = db->getMaxMsgId(session_id);
+            db->saveEmbedding(msg_id, emb);
+        }
     }
 }
 
 void Conversation::add_assistant_message(const std::string& content) {
     messages.push_back({{"role", "assistant"}, {"content", content}});
     trim_messages();
-    
     if (db) {
         int turn_id = db->getMaxTurnId(session_id);
         db->saveMessage(session_id, "assistant", content, turn_id);
+
+        auto emb = get_embedding(content);
+        if (!emb.empty()) {
+            int msg_id = db->getMaxMsgId(session_id);
+            db->saveEmbedding(msg_id, emb);
+        }
     }
 }
 
 json Conversation::get_messages() const {
     return messages;
-}
-
-void Conversation::print_history() const {
-    if(!summary.empty())
-        std::cout << "历史摘要: " << summary << std::endl;
-    
-    std::string ai_name = display_name.empty() ? "AI" : display_name;
-    for (const auto& msg : messages) {
-        std::string role = msg["role"];
-        std::string content = msg["content"];
-        if (role == "system") continue;
-        else if (role == "user")
-            std::cout << "用户: " << content << std::endl;
-        else if (role == "assistant") {
-            std::cout << ai_name << "：" << content << std::endl;
-        }
-    }
 }
 
 std::string Conversation::generateSummary(const json& old_messages, const std::string& old_summary) {
@@ -172,23 +146,6 @@ std::string Conversation::generateSummary(const json& old_messages, const std::s
             prompt += display_name + "：" + content + "\n";
     }
     return call_llm_sync(prompt);
-}
-
-void Conversation::appendSystemContext(const std::string& extra) {
-    if (extra.empty()) return;
-
-    for (auto& m : messages) {
-        if (m["role"] == "system") {
-            std::string cur = m.value("content", "");
-            m["content"] = cur.empty() ? extra : (cur + "\n\n" + extra);
-            return;
-        }
-    }
-    json sys_msg = {
-        {"role", "system"},
-        {"content", extra}
-    };
-    messages.insert(messages.begin(), sys_msg);
 }
 
 std::string Conversation::getSessionId() const {

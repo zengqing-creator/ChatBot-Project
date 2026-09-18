@@ -12,19 +12,6 @@ extern const std::string API_PATH = "/compatible-mode/v1/chat/completions";
 extern const std::string WORKSPACE_ID = std::getenv("DASHSCOPE_WORKSPACE_ID");
 extern const std::string VOICE_ID = std::getenv("DASHSCOPE_VOICE_ID");
 
-
-//编码转换
-std::string gbk_to_utf8(const std::string& gbk_str) {
-    int wide_len = MultiByteToWideChar(CP_ACP, 0, gbk_str.c_str(), -1, nullptr, 0);
-    std::wstring wide_str(wide_len, L'\0');
-    MultiByteToWideChar(CP_ACP, 0, gbk_str.c_str(), -1, wide_str.data(), wide_len);
-
-    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, wide_str.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string utf8_str(utf8_len, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wide_str.c_str(), -1, utf8_str.data(), utf8_len, nullptr, nullptr);
-    return utf8_str;
-}
-
 //工具函数
 std::string get_current_time(const std::string& format) {
     time_t now = time(nullptr);
@@ -84,6 +71,22 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
         if ((*it)["role"] == "user") {
             user_query = (*it)["content"].get<std::string>();
             break;
+        }
+    }
+    if (!user_query.empty()) {
+        auto qv = get_embedding(user_query);
+        if (!qv.empty()) {
+            auto db = conv.getDB();
+            if (db) {
+                auto similar = db->searchSimilar(qv, 3);
+                if (!similar.empty()) {
+                    std::string ctx = "[相关记忆，仅供参考，不要原样复述]\n";
+                    for (auto& [id, text] : similar)
+                        ctx += "-" + text + "\n";
+                    json ctx_msg = {{"role", "system"}, {"content", ctx}};
+                    messages.insert(messages.begin() + 1, ctx_msg);
+                }
+            }
         }
     }
 
@@ -303,49 +306,6 @@ std::vector<float> get_embedding(const std::string& text) {
         }
     } catch (...) {}
     return {};
-}
-
-std::string create_cloned_voice(const std::string& api_key, 
-                                const std::string& workspace_id,
-                                const std::string& audio_url) {
-    std::string host = workspace_id + ".cn-beijing.maas.aliyuncs.com";
-    httplib::Client client(host);
-
-    httplib::Headers headers = {
-        {"Authorization", "Bearer " + api_key}
-    };
-
-    json request_body = {
-        {"model", "voice-enrollment"},
-        {"input", {
-            {"action", "create_voice"},
-            {"target_model", "qwen-audio-3.0-tts-flash"}, 
-            {"prefix", "myvoice"},
-            {"url", audio_url}
-        }}
-    };
-
-    std::string body_str = request_body.dump();
-
-    auto res = client.Post("/api/v1/services/audio/tts/customization", 
-                           headers, body_str, "application/json");
-
-    if (res && res->status == 200) {
-        try {
-            json response = json::parse(res->body);
-            if (response.contains("output") && response["output"].contains("voice")) {
-                std::string voice_id = response["output"]["voice"];
-                std::cout << "音色创建成功! voice_id: " << voice_id << std::endl;
-                return voice_id;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "解析响应JSON失败: " << e.what() << std::endl;
-        }
-    } else {
-        std::cerr << "创建音色失败，HTTP状态码: " << (res ? res->status : 0) << std::endl;
-        if (res) std::cerr << "响应体: " << res->body << std::endl;
-    }
-    return "";
 }
 
 std::string synthesize_speech(const std::string& api_key,

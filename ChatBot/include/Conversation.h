@@ -23,14 +23,9 @@ public:
     Conversation();
     std::shared_ptr<SQLiteDB> getDB() const { return db; }
     void setDisplayName(const std::string& name);
-    std::string getDisplayName() const;
-    void changePersonality(const std::string& prompt);
-    std::string GetCurrentPersonality();
     void initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid);
     void add_user_message(const std::string& content);
     void add_assistant_message(const std::string& content);
-    void appendSystemContext(const std::string& extra);
     json get_messages() const;
-    void print_history() const;
     std::string getSessionId() const;
 };

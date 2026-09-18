@@ -1,8 +1,6 @@
 #include "SQLiteDB.h"
-
-int SQLiteDB::callback(void* NotUsed, int argc, char** argv, char** azColName) {
-    return 0;
-}
+#include <algorithm>
+#include <faiss/IndexFlat.h>
 
 SQLiteDB::SQLiteDB(const std::string& path) : db(nullptr), db_path(path) {
     open();
@@ -39,6 +37,14 @@ void SQLiteDB::createTables() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     )";
+
+    std::string create_embeddings = R"(
+    CREATE TABLE IF NOT EXISTS message_embeddings (
+        msg_id INTEGER PRIMARY KEY,
+        embedding BLOB NOT NULL,
+        FOREIGN KEY (msg_id) REFERENCES chat_messages(msg_id)
+    );
+)";
     
     std::string create_messages = R"(
         CREATE TABLE IF NOT EXISTS chat_messages (
@@ -60,11 +66,12 @@ void SQLiteDB::createTables() {
     executeSQL(create_sessions);
     executeSQL(create_messages);
     executeSQL(create_index);
+    executeSQL(create_embeddings);
 }
 
 bool SQLiteDB::executeSQL(const std::string& sql) {
     char* errMsg = nullptr;
-    int rc = sqlite3_exec(db, sql.c_str(), callback, 0, &errMsg);
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
     if (rc != SQLITE_OK) {
         std::cerr << "SQL错误: " << errMsg << std::endl;
         sqlite3_free(errMsg);
@@ -97,6 +104,78 @@ int SQLiteDB::getMaxTurnId(const std::string& session_id) {
         sqlite3_finalize(stmt);
     }
     return maxTurn;
+}
+
+int SQLiteDB::getMaxMsgId(const std::string& session_id) {
+    const char* sql = "SELECT MAX(msg_id) FROM chat_messages WHERE session_id = ?;";
+    sqlite3_stmt* stmt;
+    int maxId = 0;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, session_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            maxId = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+    }
+    return maxId;
+}
+
+void SQLiteDB::saveEmbedding(int msg_id, const std::vector<float>& embedding) {
+    const char* sql = "INSERT OR REPLACE INTO message_embeddings (msg_id, embedding) VALUES (?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, msg_id);
+        sqlite3_bind_blob(stmt, 2, embedding.data(),
+                          embedding.size() * sizeof(float), SQLITE_TRANSIENT);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+}
+
+std::vector<std::pair<int, std::string>> SQLiteDB::searchSimilar(
+    const std::vector<float>& query_embedding, int top_k) {
+    const char* sql = "SELECT msg_id, embedding FROM message_embeddings";
+    sqlite3_stmt* stmt;
+    std::vector<int> ids;
+    std::vector<float> all_embeddings;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            int msg_id = sqlite3_column_int(stmt, 0);
+            const float* data = static_cast<const float*>(sqlite3_column_blob(stmt, 1));
+            int size = sqlite3_column_bytes(stmt, 1) / sizeof(float);
+            ids.push_back(msg_id);
+            all_embeddings.insert(all_embeddings.end(), data, data + size);
+        }
+        sqlite3_finalize(stmt);
+    }
+    if (ids.empty()) return {};
+
+    int d = (int)(all_embeddings.size() / ids.size());
+    faiss::IndexFlatIP index(d);
+    index.add((faiss::idx_t)ids.size(), all_embeddings.data());
+
+    int k = std::min((int)ids.size(), top_k);
+    std::vector<float> distances(k);
+    std::vector<faiss::idx_t> indices(k);
+    index.search(1, query_embedding.data(), k,
+                 distances.data(), indices.data());
+
+    std::vector<std::pair<int, std::string>> results;
+    for (int i = 0; i < k; ++i) {
+        if (distances[i] < 0.30f) continue;
+        int msg_id = ids[indices[i]];
+        const char* sql_msg = "SELECT content FROM chat_messages WHERE msg_id = ?;";
+        sqlite3_stmt* s2;
+        if (sqlite3_prepare_v2(db, sql_msg, -1, &s2, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(s2, 1, msg_id);
+            if (sqlite3_step(s2) == SQLITE_ROW) {
+                std::string content =
+                    reinterpret_cast<const char*>(sqlite3_column_text(s2, 0));
+                results.emplace_back(msg_id, content);
+            }
+            sqlite3_finalize(s2);
+        }
+    }
+    return results;
 }
 
 std::vector<std::pair<std::string, std::string>> SQLiteDB::getRecentMessages(const std::string& session_id, int limit) {

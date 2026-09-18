@@ -5,9 +5,6 @@ class SQLiteDB {
 private:
     sqlite3* db;
     std::string db_path;
-    
-    static int callback(void* NotUsed, int argc, char** argv, char** azColName);
-    
 public:
     SQLiteDB(const std::string& path = "chatbot.db");
     ~SQLiteDB();
@@ -26,6 +23,9 @@ public:
     void setSystemPrompt(const std::string& session_id, const std::string& prompt);
     std::map<std::string, std::string> getAllSessions();
     std::string getSummary(const std::string& session_id);
+    int getMaxMsgId(const std::string& session_id);
+    void saveEmbedding(int msg_id, const std::vector<float>& embedding);
+    std::vector<std::pair<int, std::string>> searchSimilar(const std::vector<float>& query_embedding, int top_k = 3);
     void setSummary(const std::string& session_id, const std::string& summary);
     std::string getRawSystemPrompt(const std::string& session_id);
     void deleteSession(const std::string& session_id);

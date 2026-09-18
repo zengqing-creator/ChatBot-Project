@@ -108,12 +108,6 @@ int main() {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 std::string msg = body["message"];
-                std::string mem_ctx  = body.value("memory_context", "");
-                std::string emo_hint = body.value("emotion_hint", "");
-                std::vector<std::string> prefs;
-                if (body.contains("preferences") && body["preferences"].is_array())
-                    for (auto& p : body["preferences"]) prefs.push_back(p.get<std::string>());
-
                 Conversation conv;
                 {
                     std::lock_guard<std::mutex> lock(db_mutex);
@@ -121,15 +115,6 @@ int main() {
                     conv.setDisplayName(sid); 
                     conv.add_user_message(msg);
                 }
-
-                std::string extra;
-                if (!mem_ctx.empty())  extra += mem_ctx + "\n";
-                if (!emo_hint.empty()) extra += emo_hint + "\n";
-                if (!prefs.empty()) {
-                    extra += "【用户已说出口的偏好】\n";
-                    for (auto& p : prefs) extra += "- " + p + "\n";
-                }
-                if (!extra.empty()) conv.appendSystemContext(extra);
 
                 std::string full_response;
                 std::string ret_msg = call_ai_with_tools(conv, [&](const std::string& c){ full_response += c; });
@@ -216,17 +201,6 @@ int main() {
                 res.set_content(std::string("Error: ") + e.what(), "text/plain");
             }
         });
-
-        // 11. API：获取文本嵌入向量
-        svr.Post("/api/embed", [](const httplib::Request& req, httplib::Response& res) {
-        try {
-            auto body = json::parse(req.body);
-            std::string text = body.value("text", "");
-            if (text.empty()) { res.status = 400; return; }
-            auto vec = get_embedding(text);
-            res.set_content(json{{"embedding", vec}}.dump(), "application/json; charset=utf-8");
-        } catch (...) { res.status = 400; }
-    });
 
         std::cout << " AI Web Server 已启动！" << std::endl;
         std::cout << " 局域网访问地址: http://<你的局域网IP>:8080" << std::endl;
