@@ -72,13 +72,13 @@ HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
 3.每次会话初始化时，先读人设与摘要，再从数据库加载最近若干条历史消息，共同组成完整上下文。
 
 （5）LLM 调用
-所有 AI 能力统一走阿里云百炼 DashScope 的 OpenAI 兼容接口，后端只做代理，不承担模型推理。
-对话采用流式模式（SSE），边接收边拼接，前端可获得"打字机"效果。
-请求体包含模型名、温度、重复惩罚、存在惩罚、最大 token、工具定义等参数，temperature 偏高以鼓励自然叙事，重复惩罚用于抑制车轱辘话。
-SSE 解析的关键在于跨分片缓冲：TCP 字节流可能把一条事件切成几段，也可能一次送来多条，因此维护一个字符串缓冲，循环截取完整事件后再解析 JSON，直到遇到 [DONE] 标志结束。
-支持工具调用（Function Calling）：模型若判断需要外部信息，会返回 tool_calls，后端根据工具名查表执行对应函数，把结果作为工具消息追加到上下文，再次请求模型生成最终回复。
+所有AI能力统一走阿里云百炼DashScope的OpenAI兼容接口，后端只做代理，不承担模型推理。
+对话采用流式模式SSE，边接收边拼接，前端可获得"打字机"效果。
+请求体包含模型名、温度、重复惩罚、存在惩罚、最大token、工具定义等参数，temperature偏高以鼓励自然叙事，重复惩罚用于抑制车轱辘话。
+SSE解析的关键在于跨分片缓冲：TCP字节流可能把一条事件切成几段，也可能一次送来多条，因此维护一个字符串缓冲，循环截取完整事件后再解析JSON，直到遇到[DONE]标志结束。
+支持工具调用Function Calling：模型若判断需要外部信息，会返回tool_calls，后端根据工具名查表执行对应函数，把结果作为工具消息追加到上下文，再次请求模型生成最终回复。
 迭代最多三次，避免"调用—返回—再调用"的死循环。
-另有一个同步版 call_llm_sync，专供摘要生成等不需要流式的场景使用，走非流式接口，一次拿回完整回复。
+另有一个同步版call_llm_sync，专供摘要生成等不需要流式的场景使用，走非流式接口，一次拿回完整回复。
 API Key、Endpoint、路径等敏感配置均从环境变量读取，不在代码中硬编码。
 
 （6）长期记忆
@@ -89,10 +89,10 @@ API Key、Endpoint、路径等敏感配置均从环境变量读取，不在代�
 5.代价是每轮对话产生3次embedding调用，配额消耗相对较高。
 
 （7）语音合成
-TTS 走DashScope 的 SpeechSynthesizer 接口，提交文本与音色参数，返回一个可播放的音频 URL。
-前端在朗读前会先清洗文本：去除括号旁白、Markdown 标记、多余空白，把换行替换为句号，并截断超长内容，保证朗读自然流畅。
-播放使用浏览器原生 Audio 对象，播放中禁用按钮，结束后自动恢复状态。
-音色与业务空间 ID 均通过环境变量配置，便于切换。
+TTS 走DashScope的SpeechSynthesizer接口，提交文本与音色参数，返回一个可播放的音频URL。
+前端在朗读前会先清洗文本：去除括号旁白、Markdown标记、多余空白，把换行替换为句号，并截断超长内容，保证朗读自然流畅。
+播放使用浏览器原生Audio对象，播放中禁用按钮，结束后自动恢复状态。
+音色与业务空间ID均通过环境变量配置，便于切换。
 
 （8）语音通话
 通话建立在WebSocket之上，运行于独立的8081端口，与HTTP服务并存但互不干扰。
@@ -103,8 +103,8 @@ TTS 走DashScope 的 SpeechSynthesizer 接口，提交文本与音色参数，�
 WebSocket服务通过独立线程承载，主线程专注HTTP，二者共享同一份数据库与互斥锁。
 
 （9）前端架构
-前端为单页应用，使用 Vue 3 的响应式系统驱动视图，TailwindCSS负责样式，均通过CDN引入，无构建步骤。
-核心状态包括：会话列表、当前会话 ID、消息数组、输入内容、加载状态、各类模态框开关、通话状态等，全部用 ref 声明，修改即自动触发重渲染。
+前端为单页应用，使用Vue 3的响应式系统驱动视图，TailwindCSS负责样式，均通过CDN引入，无构建步骤。
+核心状态包括：会话列表、当前会话ID、消息数组、输入内容、加载状态、各类模态框开关、通话状态等，全部用 ref 声明，修改即自动触发重渲染。
 交互流程上：进入页面拉取会话列表，默认选中第一个；切换会话时拉取该会话的历史记录并替换消息数组；发送消息时先乐观地把用户消息推入界面，再请求后端，得到回复后追加显示。
 输入框支持Enter发送、Shift+Enter换行，通过keyup事件配合修饰符阻止默认换行，并在发送前trim首尾空白。
 AI消息旁提供"播放语音"按钮，点击后请求TTS接口并播放。
@@ -120,14 +120,27 @@ SQLite3 的单一连接并非线程安全，因此所有涉及数据库的读写
 四.工具
                                  版本                          下载链接
 Visual Studio 2022 Build Tools  最新版  	Microsoft https://visualstudio.microsoft.com/zh-hans/downloads/
-CMake	                           ≥3.21	            https://cmake.org/download/
-OpenSSL	                          3.x	            cmd:vcpkg install openssl:x64-windows
+CMake	                         ≥3.21	            https://cmake.org/download/
+OpenSSL	                         3.x	            cmd:vcpkg install openssl:x64-windows
 ngrok                         	最新版	            https://ngrok.com/download/windows
 
 五.准备工作
 （1）获取API密钥
       访问阿里云百炼控制台https://bailian.console.aliyun.com/，登录/注册后点击API_Key创建，
-      复制生成的API Key,在Windows下配置环境变量DASHSCOPE_API_KEY
-（2）
+      复制生成的API Key,在Windows下配置环境变量DASHSCOPE_API_KEY;
+（2）获取业务空间ID(Workspace ID)
+      访问千问AI平台https://platform.qianwenai.com/home/settings/workspaces获取Workspace ID并配置成DASHSCOPE_WORKSPACE_ID;
+（3）获取音色ID(Voice ID)
+      访问https://help.aliyun.com/zh/model-studio/cosyvoice-tts-http-api，利用声音设计或声音复刻功能创建自定义音色，创建成功后系统会返回一个形如“qwen-audio-3.0-tts-flash-myvoice-xxxxxx”的id，配置成DASHSCOPE_VOICE_ID;
+      
+六.编译命令
+   cd /d "D:\ChatBot Project\ChatBot"
+   rmdir /s /q build
+   mkdir build
+   cd build
+   cmake .. -G "Visual Studio 17 2022" -A x64
+   cmake --build . --config Release
+   编译完成后运行D:\ChatBot Project\ChatBot\start.bat，脚本会自动运行程序和内网穿透
+   注意：必须使用MSVC构建。本项目依赖FAISS和Intel MKL，二者只提供MSVC版本的库，用MinGW/GCC会在链接阶段报undefined reference
 
       
