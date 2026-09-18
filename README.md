@@ -10,7 +10,7 @@ AI聊天助手 (ChatBot)——一个基于C++和Web前端的多模态聊天应�
 7.本地化存储：SQLite数据库保存会话与消息
 
 二.技术栈：
-后端	  C++17, cpp-httplib (含SSL), SQLite3, nlohmann/json
+后端      C++17, cpp-httplib (含SSL), SQLite3, nlohmann/json, FAISS, Intel MKL
 前端	  Vue 3 (CDN), TailwindCSS (CDN)
 AI服务	阿里云百炼 DashScope API
 内网穿透	ngrok
@@ -19,7 +19,7 @@ AI服务	阿里云百炼 DashScope API
 （1）整体架构
 前端
 index.html(Vue3 + TailwindCSS) 会话列表、聊天窗口、输入框等；Web Speech API语音识别；Audio API播放TTS
-| HTTP(8080),HTTPS(8081)
+| HTTP(8080),WebSocket(8081)
 ▼
 C++后端
 HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
@@ -41,22 +41,22 @@ HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
     选用httplib.h实现HTTP/HTTPS功能和跨平台，同时支持SSL的内置流式响应。
     以下是路由设计
     方法	      路径	            职责
-    GET	         /	        前端入口，返回index.html
-    GET	    /api/sessions	    列出所有会话
-    POST	  /api/sessions	      创建新会话
-    GET	    /api/history	    拉取会话历史
-    GET	    /api/summary	    拉取会话摘要
-    POST	  /api/chat	        处理聊天消息
-    POST	  /api/personality  	修改人设
-    POST	  /api/clear	        清空记忆
-    POST	  /api/delete_session	删除会话
-    POST	  /api/tts	          语音合成
-    POST	  /api/embed	        文本向量化
+    GET	                 /	        前端入口，返回index.html
+    GET	            /api/sessions	    列出所有会话
+    POST	    /api/sessions	    创建新会话
+    GET	            /api/history	    拉取会话历史
+    GET	            /api/summary	    拉取会话摘要
+    POST	    /api/chat	            处理聊天消息
+    POST	    /api/personality  	    修改人设
+    POST	    /api/clear	            清空记忆
+    POST	    /api/delete_session	    删除会话
+    POST	    /api/tts	            语音合成
 （3）数据库层
 1.选用SQLite3嵌入式数据库，无需独立部署，数据以单文件形式随程序存放，启动即用。
 2.设计两张核心表：
       会话表chat_sessions，以session_id为主键，保存人设提示词system_prompt、长期摘要summary及创建/更新时间。
       消息表chat_messages，以msg_id为主键，记录 session_id、角色user/assistant、内容、所属回合号turn_id与时间戳。
+      向量表message_embeddings：以msg_id为主键，存储对应消息的向量BLOB。
 3.在(session_id, turn_id)上建立索引，加速"按会话拉取历史"的查询。
 4.所有SQL均使用占位符绑定参数，杜绝字符串拼接，天然防注入。
 5.回合号turn_id而非时间戳作为排序依据，保证顺序稳定、不会因同一秒内的多条消息而错乱。
@@ -69,8 +69,7 @@ HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
      调用LLM将这些旧消息连同旧摘要一起压缩成一份新摘要，写回数据库的summary字段；
      从内存messages中删除这些旧消息，并重新刷新system消息，把新摘要注入人设末尾。
 2.摘要的生成是递归式滚动更新——旧的摘要参与新的摘要生成，避免历史信息丢失。
-4.3.每次会话初始化时，先读人设与摘要，再从数据库加载最近若干条历史消息，共同组成完整上下文。
-system消息还支持动态追加内容appendSystemContext，把前端传入的记忆片段、情绪提示、用户偏好统一拼在system尾部，不污染对话消息序列。
+3.每次会话初始化时，先读人设与摘要，再从数据库加载最近若干条历史消息，共同组成完整上下文。
 
 （5）LLM 调用
 所有 AI 能力统一走阿里云百炼 DashScope 的 OpenAI 兼容接口，后端只做代理，不承担模型推理。
@@ -82,36 +81,34 @@ SSE 解析的关键在于跨分片缓冲：TCP 字节流可能把一条事件切
 另有一个同步版 call_llm_sync，专供摘要生成等不需要流式的场景使用，走非流式接口，一次拿回完整回复。
 API Key、Endpoint、路径等敏感配置均从环境变量读取，不在代码中硬编码。
 
-（6）长期记忆（向量检索）
-最初后端使用 FAISS 做语义检索，现已将这一模块前端化，由浏览器本地承担检索职责。
-其原理是：把每条消息通过 Embeddings 接口映射为高维向量，语义相近的文本在向量空间中彼此靠近。
-检索时，先把用户问句向量化，再与历史向量逐一计算余弦相似度（或内积），取分数最高的若干条作为"相关记忆"。
-后端提供 /api/embed 接口作为一次性的向量化代理，前端每轮只调用一次，避免重复消耗配额。
-当前策略是"语义召回 + 关键词兜底"混合打分：语义相似度占七成权重，关键词重合度占三成，专有名词靠关键词兜住，换种说法靠语义召回。
-命中结果只取 Top-3 左右，且分数低于阈值直接丢弃，宁可空着也不灌噪声进 prompt。
-偏好、情绪作为独立轨道管理，不参与检索，避免相互污染。
+（6）长期记忆
+1.后端使用FAISS做语义检索。每条消息通过Embeddings接口映射为高维向量，语义相近的文本在向量空间中彼此靠近。检索时把用户问句向量化，与所有历史向量逐一计算相似度，取分数最高的若干条作为"相关记忆"。
+2.向量持久化在message_embeddings表。用户消息与AI回复落库时同步保存向量。
+3.每轮对话前，后端对用户问句做一次embedding，调用searchSimilar检索Top-3；相似度低于0.30的条目直接丢弃，宁可空着也不把噪声灌进prompt。
+4.检索结果以system消息形式插在system与历史消息之间，附加"仅供参考，不要原样复述"的说明。
+5.代价是每轮对话产生3次embedding调用，配额消耗相对较高。
 
 （7）语音合成
-TTS 走 DashScope 的 SpeechSynthesizer 接口，提交文本与音色参数，返回一个可播放的音频 URL。
+TTS 走DashScope 的 SpeechSynthesizer 接口，提交文本与音色参数，返回一个可播放的音频 URL。
 前端在朗读前会先清洗文本：去除括号旁白、Markdown 标记、多余空白，把换行替换为句号，并截断超长内容，保证朗读自然流畅。
 播放使用浏览器原生 Audio 对象，播放中禁用按钮，结束后自动恢复状态。
 音色与业务空间 ID 均通过环境变量配置，便于切换。
 
 （8）语音通话
-通话建立在 WebSocket 之上，运行于独立的 8081 端口，与 HTTP 服务并存但互不干扰。
-前端使用浏览器 Web Speech API 做语音识别，识别结果为文本后，通过 WebSocket 发送给后端。
-后端收到文本，走与文字聊天一致的对话逻辑，得到回复后再调用 TTS 拿到音频 URL，一并通过 WebSocket 返回。
-关键状态是"AI 正在说话"标志：AI 播放音频期间暂停语音识别，播放结束后重新启动，避免麦克风录到 AI 的声音形成回声死循环。
-浏览器兼容性上，语音识别目前仅 Chrome 与 Edge 支持。
-WebSocket 服务通过独立线程承载，主线程专注 HTTP，二者共享同一份数据库与互斥锁。
+通话建立在WebSocket之上，运行于独立的8081端口，与HTTP服务并存但互不干扰。
+前端使用浏览器Web Speech API做语音识别，识别结果为文本后，通过WebSocket发送给后端。
+后端收到文本，走与文字聊天一致的对话逻辑，得到回复后再调用TTS拿到音频URL，一并通过WebSocket返回。
+关键状态是"AI 正在说话"标志：AI播放音频期间暂停语音识别，播放结束后重新启动，避免麦克风录到AI的声音形成回声死循环。
+浏览器兼容性上，语音识别目前仅Chrome与Edge支持。
+WebSocket服务通过独立线程承载，主线程专注HTTP，二者共享同一份数据库与互斥锁。
 
 （9）前端架构
-前端为单页应用，使用 Vue 3 的响应式系统驱动视图，TailwindCSS 负责样式，均通过 CDN 引入，无构建步骤。
+前端为单页应用，使用 Vue 3 的响应式系统驱动视图，TailwindCSS负责样式，均通过CDN引入，无构建步骤。
 核心状态包括：会话列表、当前会话 ID、消息数组、输入内容、加载状态、各类模态框开关、通话状态等，全部用 ref 声明，修改即自动触发重渲染。
 交互流程上：进入页面拉取会话列表，默认选中第一个；切换会话时拉取该会话的历史记录并替换消息数组；发送消息时先乐观地把用户消息推入界面，再请求后端，得到回复后追加显示。
-输入框支持 Enter 发送、Shift+Enter 换行，通过 keydown 事件配合修饰符阻止默认换行，并在发送前 trim 首尾空白。
-AI 消息旁提供"播放语音"按钮，点击后请求 TTS 接口并播放。
-通话按钮切换语音通话状态，配合 WebSocket 与语音识别完成整个闭环。
+输入框支持Enter发送、Shift+Enter换行，通过keyup事件配合修饰符阻止默认换行，并在发送前trim首尾空白。
+AI消息旁提供"播放语音"按钮，点击后请求TTS接口并播放。
+通话按钮切换语音通话状态，配合WebSocket与语音识别完成整个闭环。
 
 （10）并发与线程安全
 httplib 的服务器是多线程模型，每个请求由一个独立工作线程处理，多个请求可能同时访问数据库。
@@ -120,14 +117,14 @@ SQLite3 的单一连接并非线程安全，因此所有涉及数据库的读写
 语音线程以按值方式捕获 shared_ptr，即使主线程先行退出，语音线程仍持有有效引用。
 线程间通过互斥锁串行化对共享资源的访问，避免竞争条件。
 
-三.工具
+四.工具
                                  版本                          下载链接
 Visual Studio 2022 Build Tools  最新版  	Microsoft https://visualstudio.microsoft.com/zh-hans/downloads/
 CMake	                           ≥3.21	            https://cmake.org/download/
 OpenSSL	                          3.x	            cmd:vcpkg install openssl:x64-windows
 ngrok                         	最新版	            https://ngrok.com/download/windows
 
-四.准备工作
+五.准备工作
 （1）获取API密钥
       访问阿里云百炼控制台https://bailian.console.aliyun.com/，登录/注册后点击API_Key创建，
       复制生成的API Key,在Windows下配置环境变量DASHSCOPE_API_KEY
