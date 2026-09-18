@@ -15,6 +15,45 @@ AI聊天助手 (ChatBot)——一个基于C++和Web前端的多模态聊天应�
 AI服务	阿里云百炼 DashScope API
 内网穿透	ngrok
 
+三.项目技术详解
+（1）整体架构
+前端
+index.html(Vue3 + TailwindCSS) 会话列表、聊天窗口、输入框等；Web Speech API语音识别；Audio API播放TTS
+| HTTP(8080),HTTPS(8081)
+▼
+C++后端
+HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
+        |                               |
+        ▼                               ▼
+  Conversation.cpp(会话上下文) messages(json数组),system_prompt/summart
+                                  |
+                                  ▼
+                  SQLiteDB.cpp chat_sessions,chat_messages
+                                  |
+                                  ▼
+ utils.cpp call_ai_with_tools(LLM对话),get_embedding(向量化),synthesize_speech(TTS)
+                                  | HTTPS
+                                  ▼
+          阿里云百炼DashScope API:Chat Completions(qwen-turbo)
+                                 Embeddings(text-embedding-v4)
+                                 TTS(qwen-audio-3.0-tts-flash)
+（2）HTTP服务层
+    选用httplib.h实现HTTP/HTTPS功能和跨平台，同时支持SSL的内置流式响应。
+    以下是路由设计
+    方法	      路径	            职责
+    GET	         /	        前端入口，返回index.html
+    GET	    /api/sessions	    列出所有会话
+    POST	  /api/sessions	      创建新会话
+    GET	    /api/history	    拉取会话历史
+    GET	    /api/summary	    拉取会话摘要
+    POST	  /api/chat	        处理聊天消息
+    POST	  /api/personality  	修改人设
+    POST	  /api/clear	        清空记忆
+    POST	  /api/delete_session	删除会话
+    POST	  /api/tts	          语音合成
+    POST	  /api/embed	        文本向量化
+
+
 三.工具
                                  版本                          下载链接
 Visual Studio 2022 Build Tools  最新版  	Microsoft https://visualstudio.microsoft.com/zh-hans/downloads/
