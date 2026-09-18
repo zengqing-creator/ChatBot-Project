@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "D:/MinGW/mingw64/include/**",
+                "D:/MinGW/mingw64/x86_64-w64-mingw32/include/**"
+            ],
+            "defines": [
+            "_DEBUG",
+            "UNICODE",
+            "_UNICODE",
+            "_WIN32_WINNT=0x0A00",
+            "WINVER=0x0A00",
+            "CPPHTTPLIB_FORCE_WINSOCK"
+            ],
+            "compilerPath": "D:/MinGW/mingw64/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}
