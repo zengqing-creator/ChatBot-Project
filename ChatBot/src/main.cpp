@@ -2,10 +2,10 @@
 #include "SQLiteDB.h"
 #include "Conversation.h"
 #include "utils.h"
+#include "Auth.h"
 #include <fstream>
 #include <mutex>
 #include <thread>
-
 std::mutex db_mutex;
 
 int main() {
@@ -14,6 +14,11 @@ int main() {
     try {
         SetConsoleOutputCP(CP_UTF8);
         
+        Auth::instance().init(
+        "https://xemrmaqkgvcbucafoisz.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbXJtYXFrZ3ZjYnVjYWZvaXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDM1NTIsImV4cCI6MjEwNzExOTU1Mn0.sfsrT-7azC9-KavZ56TUoZp5Y67m21LXFNg-zTbdRDA"
+    );
+
         // 初始化数据库
         auto db = std::make_shared<SQLiteDB>("chatbot.db");
         httplib::Server svr;
@@ -32,13 +37,20 @@ int main() {
 
         // 2. API：获取所有会话列表及最后一条消息
         svr.Get("/api/sessions", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
             try {
                 std::lock_guard<std::mutex> lock(db_mutex);
-                auto sessions = db->getAllSessions(); //[cite: 1]
+                auto sessions = db->getAllSessions(user_id);
                 json j_sessions = json::array();
                 
                 for (const auto& [id, prompt] : sessions) {
-                    auto [last_msg, timestamp] = db->getLastMessageAndTime(id);    
+                    auto [last_msg, timestamp] = db->getLastMessageAndTime(id, user_id);    
                     j_sessions.push_back({
                         {"id", id},
                         {"prompt", prompt},
@@ -59,12 +71,19 @@ int main() {
 
         // 3. API：创建新会话
         svr.Post("/api/sessions", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 
                 std::lock_guard<std::mutex> lock(db_mutex);
-                db->ensureSession(sid);
+                db->ensureSession(sid, user_id);
                 res.set_content("{\"status\":\"ok\"}", "application/json");
             } catch (const std::exception& e) {
                 res.status = 400;
@@ -74,6 +93,14 @@ int main() {
 
         // 4. API：获取历史记录
         svr.Get("/api/history", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
+            
             if (!req.has_param("session_id")) {
                 res.status = 400;
                 return;
@@ -81,7 +108,7 @@ int main() {
             std::string sid = req.get_param_value("session_id");
             
             std::lock_guard<std::mutex> lock(db_mutex);
-            auto history = db->getRecentMessages(sid, 50); // 拉取最近50条
+            auto history = db->getRecentMessages(sid, user_id, 50); // 拉取最近50条
             json j_history = json::array();
             for (const auto& [role, content] : history) {
                 j_history.push_back({{"role", role}, {"content", content}});
@@ -91,24 +118,40 @@ int main() {
 
         // 5. API：获取摘要内容
         svr.Get("/api/summary", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
             if (!req.has_param("session_id")) {
                 res.status = 400;
                 return;
             }
             std::string sid = req.get_param_value("session_id");
             std::lock_guard<std::mutex> lock(db_mutex);
-            std::string summary = db->getSummary(sid);
+            std::string summary = db->getSummary(sid, user_id);
             json response = {{"summary", summary}};
             res.set_content(response.dump(), "application/json; charset=utf-8");
         });
 
         // 6. API：处理聊天信息
         svr.Post("/api/chat", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
+            
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 std::string msg = body["message"];
                 Conversation conv;
+                conv.setUserId(user_id);
                 {
                     std::lock_guard<std::mutex> lock(db_mutex);
                     conv.initDB(db, sid);
@@ -134,13 +177,20 @@ int main() {
 
         // 7. API：修改人设
         svr.Post("/api/personality", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 std::string prompt = body["prompt"];
                 
                 std::lock_guard<std::mutex> lock(db_mutex);
-                db->setSystemPrompt(sid, prompt);
+                db->setSystemPrompt(sid, user_id, prompt);
                 res.set_content("{\"status\":\"ok\"}", "application/json");
             } catch (...) {
                 res.status = 400;
@@ -149,12 +199,20 @@ int main() {
 
         // 8. API：清空记忆
         svr.Post("/api/clear", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
+
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 
                 std::lock_guard<std::mutex> lock(db_mutex);
-                db->deleteMessages(sid);
+                db->deleteMessages(sid, user_id);
                 res.set_content("{\"status\":\"ok\"}", "application/json");
             } catch (...) {
                 res.status = 400;
@@ -163,12 +221,20 @@ int main() {
 
         // 9. API：删除角色及其所有信息
         svr.Post("/api/delete_session", [&db](const httplib::Request& req, httplib::Response& res) {
+            std::string auth = req.get_header_value("Authorization");
+            std::string user_id = Auth::instance().verifyToken(auth);
+            if (user_id.empty()) {
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                return;
+            }
+
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 
                 std::lock_guard<std::mutex> lock(db_mutex);
-                db->deleteSession(sid);
+                db->deleteSession(sid, user_id);
                 res.set_content("{\"status\":\"ok\"}", "application/json; charset=utf-8");
             } catch (...) {
                 res.status = 400;
@@ -179,6 +245,14 @@ int main() {
         // 10. API：合成语音
         svr.Post("/api/tts", [](const httplib::Request& req,httplib::Response& res) {
             try {
+                std::string auth = req.get_header_value("Authorization");
+                std::string user_id = Auth::instance().verifyToken(auth);
+                if (user_id.empty()) {
+                    res.status = 401;
+                    res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+                    return;
+                }
+
                 auto body = json::parse(req.body);
                 std::string text = body.value("text", "");
                 if (text.empty()) {
@@ -209,8 +283,15 @@ int main() {
         std::thread voice_thread([db]() {
             httplib::Server ws_svr;
 
-            ws_svr.WebSocket("/voice", [db](const httplib::Request&, httplib::ws::WebSocket& ws) {
+            ws_svr.WebSocket("/voice", [db](const httplib::Request& req, httplib::ws::WebSocket& ws) {
                 std::string msg;
+                std::string token = req.get_param_value("token");
+                std::string user_id = Auth::instance().verifyToken("Bearer " + token);
+                if (user_id.empty()) {
+                    std::cout << "[语音] 无效token" << std::endl;
+                    ws.close();
+                    return;
+                }
 
                 while (ws.is_open()) {
                     auto result = ws.read(msg);

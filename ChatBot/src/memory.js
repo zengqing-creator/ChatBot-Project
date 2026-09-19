@@ -25,7 +25,7 @@ const MemoryModule = {
     } catch (e) { console.warn('[memory] load failed', e); }
   },
 
-  // 轻量分词：中文单字+双字，英文按词
+  // 轻量分词
   _tokenize(text) {
     const toks = new Set();
     const lower = text.toLowerCase();
@@ -60,7 +60,7 @@ const MemoryModule = {
     return id;
   },
 
-  // 检索：语义 + 关键词混合打分
+  // 混合打分检索
   async retrieve(query, embedFn, topK = 3) {
     if (!this.facts.length) return [];
     const qVec = new Float32Array(await embedFn(query));   // 每轮最多一次
@@ -86,19 +86,19 @@ const MemoryModule = {
     return qToks.size ? hit / Math.sqrt(qToks.size * Math.max(fToks.size, 1)) : 0;
   },
 
-  // Prompt 拼装
+  // Prompt拼装
   buildContextPrompt(facts) {
     if (!facts.length) return '';
     return '【相关记忆（不要原样复述，仅作参考）】\n' +
       facts.map((f, i) => `${i+1}. ${f.text}`).join('\n');
   },
 
-  // 偏好轨（独立）   
+  // 偏好轨
   addPreference(text) { this.preferences.push({ id: Date.now(), text, spoken: false }); this.save(); },
   markSpoken(id) { const p = this.preferences.find(x => x.id === id); if (p) { p.spoken = true; this.save(); } },
   getSpokenPreferences() { return this.preferences.filter(p => p.spoken).map(p => p.text); },
 
-  // 情绪轨（独立，只影响语气）   
+  // 情绪轨
   setEmotion(mood, intensity = 0.5) { this.emotion = { mood, intensity, ts: Date.now() }; this.save(); },
   getEmotionHint() {
     if (!this.emotion) return '';

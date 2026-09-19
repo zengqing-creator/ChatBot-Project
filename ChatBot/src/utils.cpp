@@ -78,7 +78,7 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
         if (!qv.empty()) {
             auto db = conv.getDB();
             if (db) {
-                auto similar = db->searchSimilar(qv, 3);
+                auto similar = db->searchSimilar(conv.getSessionId(), conv.getUserId(), qv, 3);
                 if (!similar.empty()) {
                     std::string ctx = "[相关记忆，仅供参考，不要原样复述]\n";
                     for (auto& [id, text] : similar)

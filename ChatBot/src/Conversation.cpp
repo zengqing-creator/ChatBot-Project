@@ -13,8 +13,8 @@ void Conversation::setDisplayName(const std::string& name) {
 void Conversation::initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid) {
     db = database;
     session_id = sid;
-    db->ensureSession(session_id);
-    summary = db->getSummary(session_id);
+    db->ensureSession(session_id, user_id);
+    summary = db->getSummary(session_id, user_id);
 
     if(messages.empty()){
         messages = json::array();
@@ -27,7 +27,7 @@ void Conversation::initDB(std::shared_ptr<SQLiteDB> database, const std::string&
 void Conversation::loadSystemPrompt() {
     if(!db) return;
 
-    std::string prompt = db->getSystemPrompt(session_id);
+    std::string prompt = db->getSystemPrompt(session_id, user_id);
     if(!summary.empty())prompt += summary;
 
     int system_index = -1;
@@ -63,14 +63,14 @@ void Conversation::trim_messages() {
             std::string new_summary = generateSummary(old_messages, summary);
             if(!new_summary.empty()) {
                 summary = new_summary;
-                db->setSummary(session_id, summary);
+                db->setSummary(session_id, user_id, summary);
             }
             //若生成失败，则保留最后一条消息为摘要
             else {
                 for(int i = old_messages.size() - 1;i >= 0;--i) {
                     if(old_messages[i]["role"] == "user") {
                         summary = "[最后用户说]" + old_messages[i]["content"].get<std::string>();
-                        db->setSummary(session_id, summary);
+                        db->setSummary(session_id, user_id, summary);
                         break;
                     }
                 }
@@ -78,14 +78,14 @@ void Conversation::trim_messages() {
         }
         messages.erase(messages.begin() + 1, messages.begin() + remove_count + 1);
         loadSystemPrompt();
-        if(db) db->deleteOldMessages(session_id, max_messages);
+        if(db) db->deleteOldMessages(session_id, user_id, max_messages);
     }
 }
 
 void Conversation::loadFromDatabase() {
     if (!db) return;
     
-    auto history = db->getRecentMessages(session_id, max_client_messages * 2);
+    auto history = db->getRecentMessages(session_id, user_id, max_client_messages * 2);
     for (const auto& [role, content] : history) {
         messages.push_back({{"role", role}, {"content", content}});
     }
@@ -98,13 +98,13 @@ void Conversation::add_user_message(const std::string& content) {
     messages.push_back({{"role", "user"}, {"content", content}});
     trim_messages();
     if (db) {
-        int turn_id = db->getMaxTurnId(session_id) + 1;
-        db->saveMessage(session_id, "user", content, turn_id);
+        int turn_id = db->getMaxTurnId(session_id, user_id) + 1;
+        db->saveMessage(session_id, user_id, "user", content, turn_id);
 
         auto emb = get_embedding(content);
         if (!emb.empty()) {
-            int msg_id = db->getMaxMsgId(session_id);
-            db->saveEmbedding(msg_id, emb);
+            int msg_id = db->getMaxMsgId(session_id, user_id);
+            db->saveEmbedding(msg_id, session_id, user_id, emb);
         }
     }
 }
@@ -113,13 +113,13 @@ void Conversation::add_assistant_message(const std::string& content) {
     messages.push_back({{"role", "assistant"}, {"content", content}});
     trim_messages();
     if (db) {
-        int turn_id = db->getMaxTurnId(session_id);
-        db->saveMessage(session_id, "assistant", content, turn_id);
+        int turn_id = db->getMaxTurnId(session_id, user_id);
+        db->saveMessage(session_id, user_id, "assistant", content, turn_id);
 
         auto emb = get_embedding(content);
         if (!emb.empty()) {
-            int msg_id = db->getMaxMsgId(session_id);
-            db->saveEmbedding(msg_id, emb);
+            int msg_id = db->getMaxMsgId(session_id, user_id);
+            db->saveEmbedding(msg_id, session_id, user_id, emb);
         }
     }
 }

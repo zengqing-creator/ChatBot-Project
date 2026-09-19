@@ -9,6 +9,7 @@ private:
     json messages;
     int max_client_messages = 15;
     std::string session_id;
+    std::string user_id;
     std::string display_name;
     std::string summary;
     std::shared_ptr<SQLiteDB> db;
@@ -26,6 +27,8 @@ public:
     void initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid);
     void add_user_message(const std::string& content);
     void add_assistant_message(const std::string& content);
+    void setUserId(const std::string& uid) { user_id = uid; }
+    std::string getUserId() const { return user_id; }
     json get_messages() const;
     std::string getSessionId() const;
 };
