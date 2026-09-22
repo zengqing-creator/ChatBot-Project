@@ -37,6 +37,27 @@ HTTP Server(httplib)     WebSocket Server(httplib,独立线程)
           阿里云百炼DashScope API:Chat Completions(qwen-turbo)
                                  Embeddings(text-embedding-v4)
                                  TTS(qwen-audio-3.0-tts-flash)
+（3）目录结构
+ChatBot/
+    ├── CMakeLists.txt          # 构建配置
+    ├── README.md
+    ├── start.bat               # 一键启动脚本（启动 exe + ngrok）
+    ├── faiss.dll               # FAISS 运行库
+    ├── include/                # 头文件
+    │   ├── common.h            # 公共头（平台宏 + 依赖）
+    │   ├── Conversation.h/.cpp # 会话 / 记忆压缩逻辑
+    │   ├── SQLiteDB.h/.cpp     # 数据库 + 向量检索
+    │   ├── utils.h/.cpp        # LLM 调用 / embedding / TTS
+    │   ├── httplib.h / json.hpp / sqlite3.h / IndexFlat.h ...
+    ├── src/
+    │   ├── main.cpp            # 服务入口 + 路由
+    │   ├── index.html          # 前端单页应用
+    │   ├── memory.js           # （历史遗留，当前未接入）前端记忆模块
+    │   ├── sqlite3.c           # SQLite 源码
+    │   └── generate_token.py   # LiveKit 通话 token 生成
+    ├── signal-server.js        # WebSocket 信令服务器（语音通话）
+    └── lib/                    # 依赖库
+
 （2）HTTP服务层
     选用httplib.h实现HTTP/HTTPS功能和跨平台，同时支持SSL的内置流式响应。
     以下是路由设计
@@ -82,11 +103,22 @@ SSE解析的关键在于跨分片缓冲：TCP字节流可能把一条事件切�
 API Key、Endpoint、路径等敏感配置均从环境变量读取，不在代码中硬编码。
 
 （6）长期记忆
-1.后端使用FAISS做语义检索。每条消息通过Embeddings接口映射为高维向量，语义相近的文本在向量空间中彼此靠近。检索时把用户问句向量化，与所有历史向量逐一计算相似度，取分数最高的若干条作为"相关记忆"。
+1.后端使用FAISS做语义检索。每条消息通过Embeddings接口映射为高维向量，语义相近的文本在向量空间中彼此靠近。检索时把用户问句向量化，与当前会话内的历史向量逐一计算相似度，取分数最高的若干条作为"相关记忆"。
 2.向量持久化在message_embeddings表。用户消息与AI回复落库时同步保存向量。
 3.每轮对话前，后端对用户问句做一次embedding，调用searchSimilar检索Top-3；相似度低于0.30的条目直接丢弃，宁可空着也不把噪声灌进prompt。
 4.检索结果以system消息形式插在system与历史消息之间，附加"仅供参考，不要原样复述"的说明。
 5.代价是每轮对话产生3次embedding调用，配额消耗相对较高。
+
+记忆由三层构成，全部存储在SQLite（chatbot.db）中
+    | 表 | 作用 |
+    |chat_sessions| 会话/角色：人设system_prompt、摘要summary|
+    |chat_messages| 每条消息（含session_id、role、content、turn_id） |
+    |message_embeddings| 每条消息的向量（含session_id，用于按会话隔离检索） |
+工作流程：
+1.用户发送消息 → 消息写入chat_messages，并调用text-embedding-v4生成向量写入message_embeddings（记录所属session_id）。
+2. 回复前，用当前用户消息的向量在当前会话的向量库中做相似度检索（FAISS 内积，top-3），把命中的「相关记忆」作为 system 消息注入提示词。
+3. 消息数量超过阈值（max_client_messages，默认15条×2）时触发trim_messages()：把最旧的若干条消息交给LLM生成摘要存入summary，并从上下文和数据库中裁剪。
+4. 下次加载会话时，摘要会拼接到system prompt，保证长期记忆不丢失。
 
 （7）语音合成
 TTS 走DashScope的SpeechSynthesizer接口，提交文本与音色参数，返回一个可播放的音频URL。
@@ -140,7 +172,7 @@ ngrok                         	最新版	            https://ngrok.com/download/
    cd build
    cmake .. -G "Visual Studio 17 2022" -A x64
    cmake --build . --config Release
-   编译完成后运行D:\ChatBot Project\ChatBot\start.bat，脚本会自动运行程序和内网穿透
+   编译完成后运行D:\ChatBot Project\ChatBot\start.bat，脚本会自动运行程序和内网穿透ngrok，将8080端口暴露到公网，供远程设备访问
    注意：必须使用MSVC构建。本项目依赖FAISS和Intel MKL，二者只提供MSVC版本的库，用MinGW/GCC会在链接阶段报undefined reference
 
       
