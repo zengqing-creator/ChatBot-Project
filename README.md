@@ -212,15 +212,6 @@ ChatBot/
 
 ## 六、编译命令
 
-```cmd
-cd /d "D:\ChatBot Project\ChatBot"
-rmdir /s /q build
-mkdir build
-cd build
-cmake .. -G "Visual Studio 17 2022" -A x64
-cmake --build . --config Release
-```
-
-编译完成后运行 `D:\ChatBot Project\ChatBot\start.bat`，脚本会自动运行程序和内网穿透 ngrok，将 `8080` 端口暴露到公网，供远程设备访问。
+假设项目文件下载到D盘，修改并保存代码之后直接运行 `D:\ChatBot Project\ChatBot\start.bat`，脚本会自动编译运行和内网穿透 ngrok，将 `8080` 端口暴露到公网，供远程设备访问
 
 > 注意：必须使用 MSVC 构建。本项目依赖 FAISS 和 Intel MKL，二者只提供 MSVC 版本的库，用 MinGW/GCC 会在链接阶段报 `undefined reference`。
