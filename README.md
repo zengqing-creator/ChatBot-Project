@@ -11,6 +11,7 @@
 5. 语音合成：将 AI 回复转为语音播放。
 6. 实时语音通话：浏览器语音识别 + WebSocket + TTS 实现对话。
 7. 本地化存储：SQLite 数据库保存会话与消息。
+8. 用户认证：基于 Supabase 的邮箱注册 / 登录，会话与数据按用户隔离。
 
 ## 二、技术栈
 
@@ -19,6 +20,7 @@
 | 后端 | C++17、cpp-httplib（含 SSL）、SQLite3、nlohmann/json、FAISS、Intel MKL |
 | 前端 | Vue 3（CDN）、TailwindCSS（CDN） |
 | AI 服务 | 阿里云百炼 DashScope API |
+| 用户认证 | Supabase（邮箱登录 + JWT 验证） |
 | 内网穿透 | ngrok |
 
 ## 三、项目技术详解
@@ -54,31 +56,43 @@ utils.cpp：call_ai_with_tools（LLM 对话）、get_embedding（向量化）、
 
 ```text
 ChatBot/
-├── CMakeLists.txt          # 构建配置
+├── CMakeLists.txt          # 构建配置（含 FAISS / MKL 路径）
 ├── README.md
-├── start.bat               # 一键启动脚本（启动 exe + ngrok）
+├── start.bat               # 一键启动脚本（编译 + 启动 exe + ngrok）
 ├── faiss.dll               # FAISS 运行库
+├── signal-server.js        # 历史遗留的 Node 信令服务器（语音通话已内置到 exe，无需单独启动）
+├── package.json            # Node 依赖（ws），仅供 signal-server.js 使用
 ├── include/                # 头文件
 │   ├── common.h            # 公共头（平台宏 + 依赖）
+│   ├── Auth.h              # Supabase token 验证（登录态校验）
 │   ├── Conversation.h/.cpp # 会话 / 记忆压缩逻辑
 │   ├── SQLiteDB.h/.cpp     # 数据库 + 向量检索
 │   ├── utils.h/.cpp        # LLM 调用 / embedding / TTS
 │   ├── httplib.h
 │   ├── json.hpp
 │   ├── sqlite3.h
-│   └── IndexFlat.h ...
+│   ├── IndexFlat.h         # FAISS 索引
+│   ├── livekit.h           # LiveKit C++ SDK（第三方，当前未接入编译）
+│   └── room.h              # LiveKit room 定义（同上，未使用）
 ├── src/
-│   ├── main.cpp            # 服务入口 + 路由
-│   ├── index.html          # 前端单页应用
-│   ├── memory.js           # （历史遗留，当前未接入）前端记忆模块
+│   ├── main.cpp            # 服务入口 + 路由 + WebSocket 语音服务
+│   ├── index.html          # 前端单页应用（Vue3 + Supabase 登录）
+│   ├── Conversation.cpp    # 会话 / 记忆压缩实现
+│   ├── SQLiteDB.cpp        # 数据库实现
+│   ├── utils.cpp           # LLM / embedding / TTS 实现
 │   ├── sqlite3.c           # SQLite 源码
-│   └── generate_token.py   # LiveKit 通话 token 生成
-├── signal-server.js        # WebSocket 信令服务器（语音通话）
+│   ├── memory.js           # 历史遗留，当前未接入
+│   ├── generate_token.py   # 历史遗留：LiveKit 通话 token 生成
+│   ├── testAPIKey.cpp      # 测试：HTTP 客户端 + JSON 解析
+│   └── test_env.cpp        # 测试：环境变量读取
+├── cmake/                  # CMake 辅助脚本
+├── drogon/                 # 历史遗留（Drogon 框架，未使用）
+├── node_modules/           # Node 依赖（ws）
+├── venv/                   # Python 虚拟环境（供 generate_token.py）
 └── lib/                    # 依赖库
 ```
 
 ### （3）HTTP 服务层
->>>>>>> 0d578bd864933d74ccd6bcc83c22664d2fb44cd3
 
 选用 `httplib.h` 实现 HTTP/HTTPS 功能和跨平台支持，同时支持 SSL 的内置流式响应。
 
@@ -96,6 +110,8 @@ ChatBot/
 | POST | `/api/clear` | 清空记忆 |
 | POST | `/api/delete_session` | 删除会话 |
 | POST | `/api/tts` | 语音合成 |
+
+> 以上所有 API 均需在请求头携带 `Authorization: Bearer <token>`，后端通过 Supabase 校验 token，并据此按用户隔离数据；未登录或 token 过期将返回 401。
 
 ### （4）数据库层
 
@@ -211,9 +227,70 @@ ChatBot/
 
 访问：<https://help.aliyun.com/zh/model-studio/cosyvoice-tts-http-api>，利用声音设计或声音复刻功能创建自定义音色。创建成功后，系统会返回一个形如 `qwen-audio-3.0-tts-flash-myvoice-xxxxxx` 的 ID，配置成 `DASHSCOPE_VOICE_ID`。
 
+### （4）环境变量清单
+
+项目运行时需要以下环境变量（缺一不可，程序通过 `std::getenv` 读取）：
+
+| 环境变量 | 说明 | 示例 |
+| --- | --- | --- |
+| `DASHSCOPE_API_KEY` | 阿里云百炼 API Key | `sk-xxxxxxxxxxxxxxxx` |
+| `DASHSCOPE_WORKSPACE_ID` | 业务空间 ID（Workspace ID） | `llm-xxxxxxxx` |
+| `DASHSCOPE_VOICE_ID` | 音色 ID | `qwen-audio-3.0-tts-flash-myvoice-xxxxxx` |
+
+> 说明：`API_ENDPOINT`（`https://dashscope.aliyuncs.com`）与 `API_PATH`（`/compatible-mode/v1/chat/completions`）在 `utils.cpp` 中写死，无需配置。
+
+Windows 下配置示例（PowerShell，写入用户级环境变量，永久生效）：
+
+```powershell
+[Environment]::SetEnvironmentVariable("DASHSCOPE_API_KEY", "sk-xxxx", "User")
+[Environment]::SetEnvironmentVariable("DASHSCOPE_WORKSPACE_ID", "llm-xxxx", "User")
+[Environment]::SetEnvironmentVariable("DASHSCOPE_VOICE_ID", "qwen-audio-3.0-tts-flash-myvoice-xxxxxx", "User")
+```
+
+配置完成后需重启终端 / IDE 使环境变量生效。
+
 ## 六、编译命令
 
 假设项目文件下载到D盘，修改并保存代码之后直接运行 `D:\ChatBot Project\ChatBot\start.bat`，脚本会自动编译运行和内网穿透 ngrok，将 `8080` 端口暴露到公网，供远程设备访问
 
 > 注意：必须使用 MSVC 构建。本项目依赖 FAISS 和 Intel MKL，二者只提供 MSVC 版本的库，用 MinGW/GCC 会在链接阶段报 `undefined reference`。
->>>>>>> 0d578bd864933d74ccd6bcc83c22664d2fb44cd3
+
+## 七、快速开始（运行指南）
+
+1. **安装工具**：Visual Studio 2022 Build Tools、CMake ≥ 3.21、OpenSSL 3.x、ngrok（见「四、工具」）。
+2. **核对依赖路径**：`CMakeLists.txt` 中 FAISS 与 MKL 路径为硬编码，默认 `FAISS_ROOT = C:/dev/faiss-install`、`MKL_ROOT = C:/Program Files (x86)/Intel/oneAPI/mkl/2025.3`，与本机不一致时需先改掉再编译。
+3. **配置环境变量**：按「五、准备工作」配置 `DASHSCOPE_API_KEY`、`DASHSCOPE_WORKSPACE_ID`、`DASHSCOPE_VOICE_ID`，并重启终端。
+4. **一键启动**：运行 `D:\ChatBot Project\ChatBot\start.bat`，脚本会依次完成 CMake 配置、Release 编译、启动 `ChatBot.exe`、启动 ngrok 把 `8080` 端口暴露到公网。（脚本内项目目录与 ngrok 路径为硬编码，若项目不在 `D:\ChatBot Project\ChatBot` 请先修改 `start.bat`。）
+5. **访问与登录**：
+   - 本机访问：<http://localhost:8080>
+   - 局域网访问：`http://<本机局域网IP>:8080`（后端监听 `0.0.0.0:8080`）
+   - 公网访问：使用 ngrok 分配的 URL
+   - 首次使用需在登录界面用邮箱注册（Supabase），去邮箱点击确认链接后再登录。
+6. **语音通话**：登录后点击通话按钮即可。语音通道由 `ChatBot.exe` 内置的 WebSocket 服务提供（`ws://<主机>:8081/voice`），无需单独启动 `signal-server.js`。
+
+> 后端启动时会打印 `AI Web Server 已启动！` 与 `语音通话服务已启动: ws://0.0.0.0:8081/voice`，看到这两行即表示服务就绪。
+
+## 八、常见问题（FAQ）
+
+**Q1：编译 / 链接报 `undefined reference`？**
+本项目依赖 FAISS 与 Intel MKL，二者只提供 MSVC 版本库。请使用 Visual Studio 2022 构建，不要用 MinGW/GCC。
+
+**Q2：链接报找不到 `faiss.lib` / `mkl_*.lib`？**
+`CMakeLists.txt` 中 `FAISS_ROOT`、`MKL_ROOT` 为硬编码路径，与本机安装位置不一致时会找不到库。改成你自己的路径后删除 `build/` 重新运行 CMake。
+
+**Q3：对话返回「找不到 API_KEY 环境变量」？**
+说明 `DASHSCOPE_API_KEY` 未配置或未生效。按「五、准备工作」配置后，重启终端 / IDE 再启动。
+
+**Q4：访问页面提示 401 Unauthorized？**
+所有 API 都要求携带 `Authorization: Bearer <token>` 头。确认已登录；若登录过期，重新登录即可（前端会自动带上 access_token）。
+
+**Q5：语音通话没声音 / 连不上 8081？**
+- 语音识别依赖浏览器 Web Speech API，目前仅 Chrome / Edge 支持；
+- 确认 `ChatBot.exe` 已在监听 8081（启动日志会打印对应提示）；
+- 未登录时不会建立语音通道，请先登录。
+
+**Q6：ngrok 无法启动？**
+`start.bat` 中 ngrok 路径写死为 `C:\Users\z'q\AppData\Local\Microsoft\WindowsApps\ngrok.exe`，请改成本机 ngrok 的实际路径。
+
+**Q7：网页能打开但会话为空 / 数据不保存？**
+数据保存在 exe 同目录的 `chatbot.db`。请确认 exe 运行目录有写入权限，且未误删 `chatbot.db`。
