@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+
         /*主题变量*/
         :root {
             --bg-0: #0f0d0a;
@@ -491,7 +492,6 @@
     </style>
 </head>
 
-
 <body class="h-screen flex items-center justify-center p-4">
 <div id="app" class="w-full h-full flex items-center justify-center p-4">
     <!-- 登录注册界面 -->
@@ -531,6 +531,7 @@
                 </div>
             </div>
 
+
                 <div class="flex-1 overflow-y-auto nice-scroll">
                     <div v-for="session in sessions" :key="session.id"
                         @click="switchSession(session.id)"
@@ -569,7 +570,7 @@
                 <div class="flex-1 overflow-y-auto p-6 space-y-5 nice-scroll" id="chat-box">
                     <div v-for="(msg, index) in messages" :key="index"
                         :class="['msg-row', msg.role === 'user' ? 'msg-row-user' : 'msg-row-ai']">
-                        <div v-if="msg.role !== 'user'" class="avatar avatar-ai">AI</div>
+                        <div v-if="msg.role !== 'user'" class="avatar avatar-ai">{{currentSessionId.charAt(0)||'AI'}}</div>
                         <div :class="['bubble', msg.role === 'user' ? 'bubble-user' : 'bubble-ai']">
                             {{ msg.content }}
 
@@ -704,7 +705,7 @@
                         : await supabaseClient.auth.signUp({ email: email.value, password: password.value });
                     if (error) { alert(error.message); return; }
 
-                    if(!data.user) { alert('请去邮箱点击确认链接后登录'); authMode.value = 'login'; return; }
+                    if(!data.session) { alert('请去邮箱点击确认链接后登录'); authMode.value = 'login'; return; }
                     user.value = data.user;
                     await fetchSessions();
                     await connectVoiceChannel();

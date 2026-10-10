@@ -13,6 +13,7 @@ public:
         anon_key_ = anon_key;
     }
 
+    // 验证 token，返回 user_id，失败返回空
     std::string verifyToken(const std::string& auth_header) {
         if (auth_header.size() < 8 || auth_header.substr(0, 7) != "Bearer ")
             return "";
@@ -47,7 +48,7 @@ public:
             if (!j.contains("id")) return "";
             std::string uid = j["id"].get<std::string>();
 
-            // 缓存5分钟
+            // 缓存 5 分钟
             {
                 std::lock_guard<std::mutex> lock(cache_mutex_);
                 cache_[token] = { uid, std::time(nullptr) + 300 };
