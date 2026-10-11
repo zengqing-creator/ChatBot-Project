@@ -55,7 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE
-        ws2_32 crypt32 user32 advapi32 bcrypt
+        ws2_32 crypt32 user32 advapi32 bcrypt winhttp
     )
 endif()
 
@@ -74,5 +74,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${PROJECT_ROOT}/faiss.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMENT "拷贝 index.html 和 faiss.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${PROJECT_ROOT}/src/jwks.json"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMENT "拷贝 index.html, faiss.dll, jwks.json"
 )

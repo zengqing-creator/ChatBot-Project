@@ -1,0 +1,10 @@
+^D:\CHATBOT PROJECT\CHATBOT\BUILD\CMAKEFILES\B84BCAF8B2E7165C7C96F9163EB22FB7\GENERATE.STAMP.RULE
+setlocal
+C:\Strawberry\c\bin\cmake.exe "-SD:/ChatBot Project/ChatBot" "-BD:/ChatBot Project/ChatBot/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/ChatBot Project/ChatBot/build/ChatBot.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

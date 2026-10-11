@@ -73,12 +73,14 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
             break;
         }
     }
+
+    std::vector<float> query_embedding;
     if (!user_query.empty()) {
-        auto qv = get_embedding(user_query);
-        if (!qv.empty()) {
+        query_embedding = get_embedding(user_query);
+        if (!query_embedding.empty()) {
             auto db = conv.getDB();
             if (db) {
-                auto similar = db->searchSimilar(conv.getSessionId(), conv.getUserId(), qv, 3);
+                auto similar = db->searchSimilar(conv.getSessionId(), conv.getUserId(), query_embedding, 3);
                 if (!similar.empty()) {
                     std::string ctx = "[相关记忆，仅供参考，不要原样复述]\n";
                     for (auto& [id, text] : similar)
@@ -86,6 +88,7 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
                     json ctx_msg = {{"role", "system"}, {"content", ctx}};
                     messages.insert(messages.begin() + 1, ctx_msg);
                 }
+                conv.flush_user_embeddings(query_embedding);
             }
         }
     }
@@ -258,7 +261,7 @@ std::string call_llm_sync(const std::string& user_prompt) {
 
     httplib::Client client(API_ENDPOINT);
     client.enable_server_certificate_verification(false);
-    client.set_read_timeout(60, 0);
+    client.set_read_timeout(15, 0);
 
     httplib::Headers headers = {
         {"Authorization", "Bearer " + API_KEY}
@@ -287,7 +290,7 @@ std::vector<float> get_embedding(const std::string& text) {
 
     httplib::Client client(API_ENDPOINT);
     client.enable_server_certificate_verification(false);
-    client.set_read_timeout(60, 0);
+    client.set_read_timeout(15, 0);
 
     httplib::Headers headers = {
         {"Authorization", "Bearer " + API_KEY}
@@ -309,7 +312,6 @@ std::vector<float> get_embedding(const std::string& text) {
 }
 
 std::string synthesize_speech(const std::string& api_key,
-                              const std::string& workspace_id,
                               const std::string& voice_id,
                               const std::string& text) {
     try {
@@ -318,8 +320,8 @@ std::string synthesize_speech(const std::string& api_key,
 
         httplib::Client client("https://dashscope.aliyuncs.com");
         client.enable_server_certificate_verification(false);
-        client.set_read_timeout(60, 0);
-        client.set_write_timeout(60, 0);
+        client.set_read_timeout(15, 0);
+        client.set_write_timeout(15, 0);
 
         httplib::Headers headers = {
             {"Authorization", "Bearer " + api_key}

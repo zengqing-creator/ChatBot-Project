@@ -14,10 +14,10 @@ int main() {
     try {
         SetConsoleOutputCP(CP_UTF8);
         
-        Auth::instance().init(
-        "https://xemrmaqkgvcbucafoisz.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbXJtYXFrZ3ZjYnVjYWZvaXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDM1NTIsImV4cCI6MjEwNzExOTU1Mn0.sfsrT-7azC9-KavZ56TUoZp5Y67m21LXFNg-zTbdRDA"
-    );
+        if (!Auth::instance().loadJwks("jwks.json")) {
+            std::cerr << "错误：无法加载 jwks.json" << std::endl;
+            return 1;
+        }
 
         // 初始化数据库
         auto db = std::make_shared<SQLiteDB>("chatbot.db");
@@ -213,7 +213,8 @@ int main() {
                 
                 std::lock_guard<std::mutex> lock(db_mutex);
                 db->deleteMessages(sid, user_id);
-                res.set_content("{\"status\":\"ok\"}", "application/json");
+                db->setSummary(sid, user_id, "");
+                res.set_content("{\"status\":\"ok\"}", "application/json; charset=utf-8");
             } catch (...) {
                 res.status = 400;
             }
@@ -261,7 +262,7 @@ int main() {
                     return;
                 }
 
-                std::string audio_url = synthesize_speech(API_KEY, WORKSPACE_ID, VOICE_ID, text);
+                std::string audio_url = synthesize_speech(API_KEY, VOICE_ID, text);
                 if (audio_url.empty()) {
                     res.status = 500;
                     res.set_content("{\"error\":\"TTS synthesis failed\"}", "application/json");
@@ -333,7 +334,7 @@ int main() {
 
                             // 合成语音
                             std::cout << "[语音通话] AI: " << reply << std::endl;
-                            std::string audio_url = synthesize_speech(API_KEY, WORKSPACE_ID, VOICE_ID, reply);
+                            std::string audio_url = synthesize_speech(API_KEY, VOICE_ID, reply);
                             json response = {
                                 {"type", "reply"},
                                 {"text", reply},

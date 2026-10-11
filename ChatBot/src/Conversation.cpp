@@ -2,9 +2,7 @@
 #include "SQLiteDB.h"
 #include "utils.h"
 
-Conversation::Conversation() : messages(json::array()), session_id(""), summary(""), db(nullptr) {
-    messages = json::array();
-}
+Conversation::Conversation() : messages(json::array()), session_id(""), summary(""), db(nullptr) {}
 
 void Conversation::setDisplayName(const std::string& name) { 
     display_name = name; 
@@ -28,7 +26,7 @@ void Conversation::loadSystemPrompt() {
     if(!db) return;
 
     std::string prompt = db->getSystemPrompt(session_id, user_id);
-    if(!summary.empty())prompt += summary;
+    if(!summary.empty())prompt += "\n\n【历史摘要】\n" + summary;
 
     int system_index = -1;
     for (size_t i = 0; i < messages.size(); i++) {
@@ -52,45 +50,48 @@ void Conversation::loadSystemPrompt() {
 }
 
 void Conversation::trim_messages() {
-    int max_messages = max_client_messages * 2 + 1;
-    if ((int)messages.size() > max_messages) {
-        int remove_count = (int)messages.size() - max_messages;
-        json old_messages = json::array();
-        for (int i = 1;i < 1 + remove_count && i < (int)messages.size();i++) {
-            old_messages.push_back(messages[i]);
-        }
-        if(!old_messages.empty()) {
-            std::string new_summary = generateSummary(old_messages, summary);
-            if(!new_summary.empty()) {
-                summary = new_summary;
-                db->setSummary(session_id, user_id, summary);
-            }
-            //若生成失败，则保留最后一条消息为摘要
-            else {
-                for(int i = old_messages.size() - 1;i >= 0;--i) {
-                    if(old_messages[i]["role"] == "user") {
-                        summary = "[最后用户说]" + old_messages[i]["content"].get<std::string>();
-                        db->setSummary(session_id, user_id, summary);
-                        break;
-                    }
-                }
-            }
-        }
-        messages.erase(messages.begin() + 1, messages.begin() + remove_count + 1);
-        loadSystemPrompt();
-        if(db) db->deleteOldMessages(session_id, user_id, max_messages);
+    if ((int)messages.size() <= MAX_MESSAGES) return;
+
+    int remove_count = (int)messages.size() - MAX_MESSAGES;
+    for (int i = 1;i < 1 + remove_count && i < (int)messages.size();i++) {
+        pending_messages.push_back(messages[i]);
     }
+    messages.erase(messages.begin() + 1, messages.begin() + remove_count + 1);
+    loadSystemPrompt();
+    
+    if ((int)pending_messages.size() < summary_batch) return;
+    std::string new_summary = generateSummary(pending_messages, summary);
+    if (!new_summary.empty()) summary = new_summary;
+    else {
+        std::string fallback_summary = summary;
+        fallback_summary += "\n[近期对话要点（摘要生成失败，原文片段）]\n";
+
+        int kept = 0;
+        for (int i = (int)pending_messages.size() - 1; i >= 0 && kept < 5; --i) {
+            const auto& msg = pending_messages[i];
+            std::string role = msg["role"];
+            std::string content = msg["content"].get<std::string>();
+            if (content.size() > 80) content = content.substr(0, 80) + "…";
+            fallback_summary += (role == "user" ? "用户: " : display_name + ": ") + content + "\n";
+            kept++;
+        }
+
+        const size_t MAX_SUMMARY_LEN = 2000; // 若超过2000字，从头部截掉
+        if (fallback_summary.size() > MAX_SUMMARY_LEN)
+            fallback_summary = fallback_summary.substr(fallback_summary.size() - MAX_SUMMARY_LEN);
+        summary = fallback_summary;
+    }
+    db->setSummary(session_id, user_id, summary);
+    pending_messages = json::array();
+    db->deleteOldMessages(session_id, user_id, MAX_TURNS);
 }
 
 void Conversation::loadFromDatabase() {
     if (!db) return;
-    
-    auto history = db->getRecentMessages(session_id, user_id, max_client_messages * 2);
+    auto history = db->getRecentMessages(session_id, user_id, MAX_TURNS * 2);
     for (const auto& [role, content] : history) {
         messages.push_back({{"role", role}, {"content", content}});
     }
-    loaded = true;
-    
     std::cout << "[系统] 已从数据库加载 " << history.size() << " 条历史消息" << std::endl;
 }
 
@@ -100,14 +101,16 @@ void Conversation::add_user_message(const std::string& content) {
     if (db) {
         int turn_id = db->getMaxTurnId(session_id, user_id) + 1;
         db->saveMessage(session_id, user_id, "user", content, turn_id);
-
-        auto emb = get_embedding(content);
-        if (!emb.empty()) {
-            int msg_id = db->getMaxMsgId(session_id, user_id);
-            db->saveEmbedding(msg_id, session_id, user_id, emb);
-        }
+        pending_user_msg_id = db->getMaxMsgId(session_id, user_id);
     }
 }
+
+void Conversation::flush_user_embeddings(const std::vector<float>& emb) {
+    if (db && pending_user_msg_id > 0 && !emb.empty())
+        db->saveEmbedding(pending_user_msg_id, session_id, user_id, emb);
+    pending_user_msg_id = -1;
+}
+
 
 void Conversation::add_assistant_message(const std::string& content) {
     messages.push_back({{"role", "assistant"}, {"content", content}});

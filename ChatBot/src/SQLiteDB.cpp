@@ -303,9 +303,8 @@ std::string SQLiteDB::getSystemPrompt(const std::string& session_id, const std::
     return result;
 }
 
-
+// 删除该会话的向量记忆
 void SQLiteDB::deleteMessages(const std::string& session_id, const std::string& user_id) {
-    // 删除该会话的向量记忆
     const char* sql_emb = "DELETE FROM message_embeddings WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql_emb, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -324,12 +323,11 @@ void SQLiteDB::deleteMessages(const std::string& session_id, const std::string& 
     }
 }
 
-void SQLiteDB::deleteOldMessages(const std::string& session_id, const std::string& user_id, int keep_count) {
+void SQLiteDB::deleteOldMessages(const std::string& session_id, const std::string& user_id, const int keep_turns) {
     int max_turn = getMaxTurnId(session_id, user_id);
-    if (max_turn <= keep_count) return;
+    if (max_turn <= keep_turns) return;
 
-    int min_keep_turn = max_turn - keep_count + 1;
-
+    int min_keep_turn = max_turn - keep_turns + 1;
     const char* sql_emb = "DELETE FROM message_embeddings WHERE msg_id IN "
                           "(SELECT msg_id FROM chat_messages WHERE session_id = ? AND user_id = ? AND turn_id < ?);";
     sqlite3_stmt* stmt;
@@ -409,22 +407,6 @@ void SQLiteDB::setSummary(const std::string& session_id, const std::string& user
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
-}
-
-std::string SQLiteDB::getRawSystemPrompt(const std::string& session_id, const std::string& user_id) {
-    const char* sql = "SELECT system_prompt FROM chat_sessions WHERE session_id = ? AND user_id = ?;";
-    sqlite3_stmt* stmt;
-    std::string result;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, session_id.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-            if (text) result = text;
-        }
-        sqlite3_finalize(stmt);
-    }
-    return result;
 }
 
 void SQLiteDB::deleteSession(const std::string& session_id, const std::string& user_id) {
