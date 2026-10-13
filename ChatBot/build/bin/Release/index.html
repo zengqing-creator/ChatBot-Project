@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 多模态聊天助手 · 深夜茶室</title>
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -647,6 +647,16 @@
 
 
 <script>
+    // 依赖检查：若 Vue / Supabase 未从 CDN 加载成功，直接给出明确提示，
+    // 避免页面残留原始 {{ }} 模板文本（看起来像中文乱码）与错乱布局。
+    if (typeof Vue === 'undefined' || typeof supabase === 'undefined') {
+        document.body.innerHTML =
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+            'font-family:system-ui,sans-serif;color:#e07a5f;text-align:center;padding:24px;">' +
+            '前端依赖（Vue / Supabase）加载失败，请检查网络连接后刷新重试。</div>';
+        throw new Error('CDN 依赖加载失败');
+    }
+
     const SUPABASE_URL = 'https://xemrmaqkgvcbucafoisz.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbXJtYXFrZ3ZjYnVjYWZvaXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDM1NTIsImV4cCI6MjEwNzExOTU1Mn0.sfsrT-7azC9-KavZ56TUoZp5Y67m21LXFNg-zTbdRDA';
     const API_BASE = '';
