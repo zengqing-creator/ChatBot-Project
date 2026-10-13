@@ -24,7 +24,7 @@ events:
       The output was:
       0
       閫傜敤浜?.NET Framework MSBuild 鐗堟湰 17.14.51+25f168cee
-      鐢熸垚鍚姩鏃堕棿涓?2026/10/11 14:40:26銆?
+      鐢熸垚鍚姩鏃堕棿涓?2026/10/11 15:11:56銆?
       
       鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\3.29.2\\CompilerIdC\\CompilerIdC.vcxproj鈥?榛樿鐩爣)銆?
       PrepareForBuild:
@@ -53,7 +53,7 @@ events:
           0 涓鍛?
           0 涓敊璇?
       
-      宸茬敤鏃堕棿 00:00:00.84
+      宸茬敤鏃堕棿 00:00:00.86
       
       
       Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.exe"
@@ -79,7 +79,7 @@ events:
       The output was:
       0
       閫傜敤浜?.NET Framework MSBuild 鐗堟湰 17.14.51+25f168cee
-      鐢熸垚鍚姩鏃堕棿涓?2026/10/11 14:40:27銆?
+      鐢熸垚鍚姩鏃堕棿涓?2026/10/11 15:11:57銆?
       
       鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\3.29.2\\CompilerIdCXX\\CompilerIdCXX.vcxproj鈥?榛樿鐩爣)銆?
       PrepareForBuild:
@@ -108,7 +108,7 @@ events:
           0 涓鍛?
           0 涓敊璇?
       
-      宸茬敤鏃堕棿 00:00:00.49
+      宸茬敤鏃堕棿 00:00:00.42
       
       
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.exe"
@@ -127,8 +127,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-qynws9"
-      binary: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-qynws9"
+      source: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-z7ms35"
+      binary: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-z7ms35"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -137,40 +137,40 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-qynws9'
+        Change Dir: 'D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-z7ms35'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_b0c69.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_c7022.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         閫傜敤浜?.NET Framework MSBuild 鐗堟湰 17.14.51+25f168cee
-        鐢熸垚鍚姩鏃堕棿涓?2026/10/11 14:40:28銆?
+        鐢熸垚鍚姩鏃堕棿涓?2026/10/11 15:11:57銆?
         
-        鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-qynws9\\cmTC_b0c69.vcxproj鈥?榛樿鐩爣)銆?
+        鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-z7ms35\\cmTC_c7022.vcxproj鈥?榛樿鐩爣)銆?
         PrepareForBuild:
-          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_b0c69.dir\\Debug\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_c7022.dir\\Debug\\鈥濄€?
           宸插惎鐢ㄧ粨鏋勫寲杈撳嚭銆傜紪璇戝櫒璇婃柇鐨勬牸寮忚缃皢鍙嶆槧閿欒灞傛缁撴瀯銆傛湁鍏宠缁嗕俊鎭紝璇峰弬闃?https://aka.ms/cpp/structured-output銆?
-          姝ｅ湪鍒涘缓鐩綍鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-qynws9\\Debug\\鈥濄€?
-          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_b0c69.dir\\Debug\\cmTC_b0c69.tlog\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-z7ms35\\Debug\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_c7022.dir\\Debug\\cmTC_c7022.tlog\\鈥濄€?
         InitializeBuildStatus:
-          姝ｅ湪鍒涘缓鈥渃mTC_b0c69.dir\\Debug\\cmTC_b0c69.tlog\\unsuccessfulbuild鈥濓紝鍥犱负宸叉寚瀹氣€淎lwaysCreate鈥濄€?
-          姝ｅ湪瀵光€渃mTC_b0c69.dir\\Debug\\cmTC_b0c69.tlog\\unsuccessfulbuild鈥濇墽琛?Touch 浠诲姟銆?
+          姝ｅ湪鍒涘缓鈥渃mTC_c7022.dir\\Debug\\cmTC_c7022.tlog\\unsuccessfulbuild鈥濓紝鍥犱负宸叉寚瀹氣€淎lwaysCreate鈥濄€?
+          姝ｅ湪瀵光€渃mTC_c7022.dir\\Debug\\cmTC_c7022.tlog\\unsuccessfulbuild鈥濇墽琛?Touch 浠诲姟銆?
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_b0c69.dir\\Debug\\\\" /Fd"cmTC_b0c69.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCCompilerABI.c"
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_c7022.dir\\Debug\\\\" /Fd"cmTC_c7022.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCCompilerABI.c"
           鐢ㄤ簬 x64 鐨?Microsoft (R) C/C++ 浼樺寲缂栬瘧鍣?19.44.35228 鐗?
           鐗堟潈鎵€鏈?C) Microsoft Corporation銆備繚鐣欐墍鏈夋潈鍒┿€?
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_b0c69.dir\\Debug\\\\" /Fd"cmTC_b0c69.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCCompilerABI.c"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_c7022.dir\\Debug\\\\" /Fd"cmTC_c7022.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCCompilerABI.c"
           CMakeCCompilerABI.c
         Link:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-qynws9\\Debug\\cmTC_b0c69.exe" /INCREMENTAL /ILK:"cmTC_b0c69.dir\\Debug\\cmTC_b0c69.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-qynws9/Debug/cmTC_b0c69.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-qynws9/Debug/cmTC_b0c69.lib" /MACHINE:X64  /machine:x64 cmTC_b0c69.dir\\Debug\\CMakeCCompilerABI.obj
-          cmTC_b0c69.vcxproj -> D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-qynws9\\Debug\\cmTC_b0c69.exe
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-z7ms35\\Debug\\cmTC_c7022.exe" /INCREMENTAL /ILK:"cmTC_c7022.dir\\Debug\\cmTC_c7022.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-z7ms35/Debug/cmTC_c7022.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-z7ms35/Debug/cmTC_c7022.lib" /MACHINE:X64  /machine:x64 cmTC_c7022.dir\\Debug\\CMakeCCompilerABI.obj
+          cmTC_c7022.vcxproj -> D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-z7ms35\\Debug\\cmTC_c7022.exe
         FinalizeBuildStatus:
-          姝ｅ湪鍒犻櫎鏂囦欢鈥渃mTC_b0c69.dir\\Debug\\cmTC_b0c69.tlog\\unsuccessfulbuild鈥濄€?
-          姝ｅ湪瀵光€渃mTC_b0c69.dir\\Debug\\cmTC_b0c69.tlog\\cmTC_b0c69.lastbuildstate鈥濇墽琛?Touch 浠诲姟銆?
-        宸插畬鎴愮敓鎴愰」鐩€淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-qynws9\\cmTC_b0c69.vcxproj鈥?榛樿鐩爣)鐨勬搷浣溿€?
+          姝ｅ湪鍒犻櫎鏂囦欢鈥渃mTC_c7022.dir\\Debug\\cmTC_c7022.tlog\\unsuccessfulbuild鈥濄€?
+          姝ｅ湪瀵光€渃mTC_c7022.dir\\Debug\\cmTC_c7022.tlog\\cmTC_c7022.lastbuildstate鈥濇墽琛?Touch 浠诲姟銆?
+        宸插畬鎴愮敓鎴愰」鐩€淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-z7ms35\\cmTC_c7022.vcxproj鈥?榛樿鐩爣)鐨勬搷浣溿€?
         
         宸叉垚鍔熺敓鎴愩€?
             0 涓鍛?
             0 涓敊璇?
         
-        宸茬敤鏃堕棿 00:00:00.52
+        宸茬敤鏃堕棿 00:00:00.48
         
       exitCode: 0
   -
@@ -210,8 +210,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-ie8zjk"
-      binary: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-ie8zjk"
+      source: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-btw2jb"
+      binary: "D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-btw2jb"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -220,40 +220,40 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-ie8zjk'
+        Change Dir: 'D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-btw2jb'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_e6a07.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_a8878.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         閫傜敤浜?.NET Framework MSBuild 鐗堟湰 17.14.51+25f168cee
-        鐢熸垚鍚姩鏃堕棿涓?2026/10/11 14:40:29銆?
+        鐢熸垚鍚姩鏃堕棿涓?2026/10/11 15:11:58銆?
         
-        鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-ie8zjk\\cmTC_e6a07.vcxproj鈥?榛樿鐩爣)銆?
+        鑺傜偣 1 涓婄殑椤圭洰鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-btw2jb\\cmTC_a8878.vcxproj鈥?榛樿鐩爣)銆?
         PrepareForBuild:
-          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_e6a07.dir\\Debug\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_a8878.dir\\Debug\\鈥濄€?
           宸插惎鐢ㄧ粨鏋勫寲杈撳嚭銆傜紪璇戝櫒璇婃柇鐨勬牸寮忚缃皢鍙嶆槧閿欒灞傛缁撴瀯銆傛湁鍏宠缁嗕俊鎭紝璇峰弬闃?https://aka.ms/cpp/structured-output銆?
-          姝ｅ湪鍒涘缓鐩綍鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-ie8zjk\\Debug\\鈥濄€?
-          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_e6a07.dir\\Debug\\cmTC_e6a07.tlog\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-btw2jb\\Debug\\鈥濄€?
+          姝ｅ湪鍒涘缓鐩綍鈥渃mTC_a8878.dir\\Debug\\cmTC_a8878.tlog\\鈥濄€?
         InitializeBuildStatus:
-          姝ｅ湪鍒涘缓鈥渃mTC_e6a07.dir\\Debug\\cmTC_e6a07.tlog\\unsuccessfulbuild鈥濓紝鍥犱负宸叉寚瀹氣€淎lwaysCreate鈥濄€?
-          姝ｅ湪瀵光€渃mTC_e6a07.dir\\Debug\\cmTC_e6a07.tlog\\unsuccessfulbuild鈥濇墽琛?Touch 浠诲姟銆?
+          姝ｅ湪鍒涘缓鈥渃mTC_a8878.dir\\Debug\\cmTC_a8878.tlog\\unsuccessfulbuild鈥濓紝鍥犱负宸叉寚瀹氣€淎lwaysCreate鈥濄€?
+          姝ｅ湪瀵光€渃mTC_a8878.dir\\Debug\\cmTC_a8878.tlog\\unsuccessfulbuild鈥濇墽琛?Touch 浠诲姟銆?
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /EHsc /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_e6a07.dir\\Debug\\\\" /Fd"cmTC_e6a07.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCXXCompilerABI.cpp"
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /EHsc /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_a8878.dir\\Debug\\\\" /Fd"cmTC_a8878.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCXXCompilerABI.cpp"
           鐢ㄤ簬 x64 鐨?Microsoft (R) C/C++ 浼樺寲缂栬瘧鍣?19.44.35228 鐗?
           鐗堟潈鎵€鏈?C) Microsoft Corporation銆備繚鐣欐墍鏈夋潈鍒┿€?
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /EHsc /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_e6a07.dir\\Debug\\\\" /Fd"cmTC_e6a07.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCXXCompilerABI.cpp"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /Gm- /EHsc /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_a8878.dir\\Debug\\\\" /Fd"cmTC_a8878.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Strawberry\\c\\share\\cmake-3.29\\Modules\\CMakeCXXCompilerABI.cpp"
           CMakeCXXCompilerABI.cpp
         Link:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-ie8zjk\\Debug\\cmTC_e6a07.exe" /INCREMENTAL /ILK:"cmTC_e6a07.dir\\Debug\\cmTC_e6a07.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-ie8zjk/Debug/cmTC_e6a07.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-ie8zjk/Debug/cmTC_e6a07.lib" /MACHINE:X64  /machine:x64 cmTC_e6a07.dir\\Debug\\CMakeCXXCompilerABI.obj
-          cmTC_e6a07.vcxproj -> D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-ie8zjk\\Debug\\cmTC_e6a07.exe
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-btw2jb\\Debug\\cmTC_a8878.exe" /INCREMENTAL /ILK:"cmTC_a8878.dir\\Debug\\cmTC_a8878.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-btw2jb/Debug/cmTC_a8878.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:/ChatBot Project/ChatBot/build/CMakeFiles/CMakeScratch/TryCompile-btw2jb/Debug/cmTC_a8878.lib" /MACHINE:X64  /machine:x64 cmTC_a8878.dir\\Debug\\CMakeCXXCompilerABI.obj
+          cmTC_a8878.vcxproj -> D:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-btw2jb\\Debug\\cmTC_a8878.exe
         FinalizeBuildStatus:
-          姝ｅ湪鍒犻櫎鏂囦欢鈥渃mTC_e6a07.dir\\Debug\\cmTC_e6a07.tlog\\unsuccessfulbuild鈥濄€?
-          姝ｅ湪瀵光€渃mTC_e6a07.dir\\Debug\\cmTC_e6a07.tlog\\cmTC_e6a07.lastbuildstate鈥濇墽琛?Touch 浠诲姟銆?
-        宸插畬鎴愮敓鎴愰」鐩€淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-ie8zjk\\cmTC_e6a07.vcxproj鈥?榛樿鐩爣)鐨勬搷浣溿€?
+          姝ｅ湪鍒犻櫎鏂囦欢鈥渃mTC_a8878.dir\\Debug\\cmTC_a8878.tlog\\unsuccessfulbuild鈥濄€?
+          姝ｅ湪瀵光€渃mTC_a8878.dir\\Debug\\cmTC_a8878.tlog\\cmTC_a8878.lastbuildstate鈥濇墽琛?Touch 浠诲姟銆?
+        宸插畬鎴愮敓鎴愰」鐩€淒:\\ChatBot Project\\ChatBot\\build\\CMakeFiles\\CMakeScratch\\TryCompile-btw2jb\\cmTC_a8878.vcxproj鈥?榛樿鐩爣)鐨勬搷浣溿€?
         
         宸叉垚鍔熺敓鎴愩€?
             0 涓鍛?
             0 涓敊璇?
         
-        宸茬敤鏃堕棿 00:00:00.48
+        宸茬敤鏃堕棿 00:00:00.50
         
       exitCode: 0
   -
