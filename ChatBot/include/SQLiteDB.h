@@ -1,10 +1,12 @@
 #pragma once
 #include "common.h"
+#include <mutex>
 
 class SQLiteDB {
 private:
     sqlite3* db;
     std::string db_path;
+    std::recursive_mutex mtx_;
     void migrateEmbeddingsTable();
 public:
     SQLiteDB(const std::string& path = "chatbot.db");
@@ -14,10 +16,12 @@ public:
     void close();
     void createTables();
     bool executeSQL(const std::string& sql);
-    void ensureSession(const std::string& session_id, const std::string& user_id);
+    void ensureSession(const std::string& session_id, const std::string& user_id, const std::string& voice_id);
+    std::string getSessionVoiceId(const std::string& session_id, const std::string& user_id);
     int getMaxTurnId(const std::string& session_id, const std::string& user_id);
     std::vector<std::pair<std::string, std::string>> getRecentMessages(const std::string& session_id, const std::string& user_id, int limit);
-    void saveMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content, int turn_id);
+    int saveMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content, int turn_id);
+    int appendMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content);
     std::string getSystemPrompt(const std::string& session_id, const std::string& user_id);
     void deleteMessages(const std::string& session_id, const std::string& user_id);
     void deleteOldMessages(const std::string& session_id, const std::string& user_id, const int keep_turns);

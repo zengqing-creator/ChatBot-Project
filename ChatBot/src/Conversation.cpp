@@ -8,10 +8,11 @@ void Conversation::setDisplayName(const std::string& name) {
     display_name = name; 
 }
 
-void Conversation::initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid) {
+void Conversation::initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid, const std::string& uid, const std::string& vid) {
     db = database;
     session_id = sid;
-    db->ensureSession(session_id, user_id);
+    user_id = uid;
+    db->ensureSession(session_id, user_id, vid);
     summary = db->getSummary(session_id, user_id);
 
     if(messages.empty()){
@@ -99,9 +100,7 @@ void Conversation::add_user_message(const std::string& content) {
     messages.push_back({{"role", "user"}, {"content", content}});
     trim_messages();
     if (db) {
-        int turn_id = db->getMaxTurnId(session_id, user_id) + 1;
-        db->saveMessage(session_id, user_id, "user", content, turn_id);
-        pending_user_msg_id = db->getMaxMsgId(session_id, user_id);
+        pending_user_msg_id = db->appendMessage(session_id, user_id, "user", content);
     }
 }
 
@@ -116,14 +115,11 @@ void Conversation::add_assistant_message(const std::string& content) {
     messages.push_back({{"role", "assistant"}, {"content", content}});
     trim_messages();
     if (db) {
-        int turn_id = db->getMaxTurnId(session_id, user_id);
-        db->saveMessage(session_id, user_id, "assistant", content, turn_id);
+        int msg_id = db->appendMessage(session_id, user_id, "assistant", content);
 
         auto emb = get_embedding(content);
-        if (!emb.empty()) {
-            int msg_id = db->getMaxMsgId(session_id, user_id);
+        if (!emb.empty() && msg_id > 0)
             db->saveEmbedding(msg_id, session_id, user_id, emb);
-        }
     }
 }
 

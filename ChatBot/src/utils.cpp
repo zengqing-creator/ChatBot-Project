@@ -5,12 +5,20 @@
 #include <algorithm>
 #include <iostream>
 
+// 环境变量可能缺失，std::getenv 会返回 nullptr，直接用其构造 std::string 会在 main 之前崩溃
+namespace {
+const char* env_or_empty(const char* name) {
+    const char* value = std::getenv(name);
+    return value ? value : "";
+}
+}
+
 //API配置
-extern const std::string API_KEY = std::getenv("DASHSCOPE_API_KEY");
+extern const std::string API_KEY = env_or_empty("DASHSCOPE_API_KEY");
 extern const std::string API_ENDPOINT = "https://dashscope.aliyuncs.com";
 extern const std::string API_PATH = "/compatible-mode/v1/chat/completions";
-extern const std::string WORKSPACE_ID = std::getenv("DASHSCOPE_WORKSPACE_ID");
-extern const std::string VOICE_ID = std::getenv("DASHSCOPE_VOICE_ID");
+extern const std::string WORKSPACE_ID = env_or_empty("DASHSCOPE_WORKSPACE_ID");
+extern const std::string VOICE_ID = env_or_empty("DASHSCOPE_VOICE_ID");
 
 //工具函数
 std::string get_current_time(const std::string& format) {
@@ -102,7 +110,7 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
         accumulated_content.clear();
         
         json request_body = {
-            {"model", "qwen-turbo"},
+            {"model", "qwen-plus"},
             {"messages", messages},
             {"temperature", 0.75},
             {"repetition_penalty", 1.2},
@@ -120,7 +128,8 @@ std::string call_ai_with_tools(Conversation& conv, std::function<void(const std:
 
         httplib::Headers headers = {
             {"Authorization", "Bearer " + API_KEY},
-            {"Accept", "text/event-stream"}
+            {"Accept", "application/json"},
+            {"X-DashScope-Wait-Timeout", "10"}
         };
 
         std::string finish_reason;
@@ -248,7 +257,7 @@ std::string call_llm_sync(const std::string& user_prompt) {
     messages.push_back({{"role", "user"}, {"content", user_prompt}});
     
     json request_body = {
-        {"model", "qwen-turbo"},
+        {"model", "qwen-plus"},
         {"messages", messages},
         {"temperature", 0.75},
         {"repetition_penalty", 1.2},
@@ -264,7 +273,9 @@ std::string call_llm_sync(const std::string& user_prompt) {
     client.set_read_timeout(15, 0);
 
     httplib::Headers headers = {
-        {"Authorization", "Bearer " + API_KEY}
+        {"Authorization", "Bearer " + API_KEY},
+        {"Accept", "application/json"},
+        {"X-DashScope-Wait-Timeout", "10"}
     };
 
     try {
@@ -293,7 +304,9 @@ std::vector<float> get_embedding(const std::string& text) {
     client.set_read_timeout(15, 0);
 
     httplib::Headers headers = {
-        {"Authorization", "Bearer " + API_KEY}
+        {"Authorization", "Bearer " + API_KEY},
+        {"Accept", "application/json"},
+        {"X-DashScope-Wait-Timeout", "10"}
     };
 
     try {
@@ -324,11 +337,15 @@ std::string synthesize_speech(const std::string& api_key,
         client.set_write_timeout(15, 0);
 
         httplib::Headers headers = {
-            {"Authorization", "Bearer " + api_key}
+            {"Authorization", "Bearer " + api_key},
+            {"Accept", "application/json"},
+            {"X-DashScope-Wait-Timeout", "10"}
         };
 
+
+
         json request_body = {
-            {"model", "qwen-audio-3.0-tts-flash"},
+            {"model", "qwen-audio-3.1-tts-flash"},
             {"input", {
                 {"text", text},
                 {"voice", voice_id},

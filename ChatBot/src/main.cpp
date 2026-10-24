@@ -2,22 +2,12 @@
 #include "SQLiteDB.h"
 #include "Conversation.h"
 #include "utils.h"
-#include "Auth.h"
 #include <fstream>
-#include <mutex>
 #include <thread>
-std::mutex db_mutex;
 
 int main() {
-    std::cout << "Global API_KEY: " << API_KEY << std::endl;
-    
     try {
         SetConsoleOutputCP(CP_UTF8);
-        
-        if (!Auth::instance().loadJwks("jwks.json")) {
-            std::cerr << "错误：无法加载 jwks.json" << std::endl;
-            return 1;
-        }
 
         // 初始化数据库
         auto db = std::make_shared<SQLiteDB>("chatbot.db");
@@ -37,15 +27,8 @@ int main() {
 
         // 2. API：获取所有会话列表及最后一条消息
         svr.Get("/api/sessions", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             try {
-                std::lock_guard<std::mutex> lock(db_mutex);
                 auto sessions = db->getAllSessions(user_id);
                 json j_sessions = json::array();
                 
@@ -59,8 +42,7 @@ int main() {
                     });
                 }
 
-                res.set_content
-                (j_sessions.dump(-1,' ',false,nlohmann::json::error_handler_t::replace), 
+                res.set_content(j_sessions.dump(-1,' ',false,nlohmann::json::error_handler_t::replace), 
                 "application/json; charset=utf-8");
             } catch (const std::exception& e) {
                 std::cerr << "[后端报错]获取会话列表失败：" << e.what() << std::endl;
@@ -71,19 +53,13 @@ int main() {
 
         // 3. API：创建新会话
         svr.Post("/api/sessions", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
+                std::string vid = body.value("voice_id", ""); // 接收音色，没传就是空
                 
-                std::lock_guard<std::mutex> lock(db_mutex);
-                db->ensureSession(sid, user_id);
+                db->ensureSession(sid, user_id, vid);
                 res.set_content("{\"status\":\"ok\"}", "application/json");
             } catch (const std::exception& e) {
                 res.status = 400;
@@ -93,13 +69,7 @@ int main() {
 
         // 4. API：获取历史记录
         svr.Get("/api/history", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             
             if (!req.has_param("session_id")) {
                 res.status = 400;
@@ -107,7 +77,6 @@ int main() {
             }
             std::string sid = req.get_param_value("session_id");
             
-            std::lock_guard<std::mutex> lock(db_mutex);
             auto history = db->getRecentMessages(sid, user_id, 50); // 拉取最近50条
             json j_history = json::array();
             for (const auto& [role, content] : history) {
@@ -118,19 +87,12 @@ int main() {
 
         // 5. API：获取摘要内容
         svr.Get("/api/summary", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             if (!req.has_param("session_id")) {
                 res.status = 400;
                 return;
             }
             std::string sid = req.get_param_value("session_id");
-            std::lock_guard<std::mutex> lock(db_mutex);
             std::string summary = db->getSummary(sid, user_id);
             json response = {{"summary", summary}};
             res.set_content(response.dump(), "application/json; charset=utf-8");
@@ -138,13 +100,7 @@ int main() {
 
         // 6. API：处理聊天信息
         svr.Post("/api/chat", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             
             try {
                 auto body = json::parse(req.body);
@@ -152,18 +108,14 @@ int main() {
                 std::string msg = body["message"];
                 Conversation conv;
                 conv.setUserId(user_id);
-                {
-                    std::lock_guard<std::mutex> lock(db_mutex);
-                    conv.initDB(db, sid);
-                    conv.setDisplayName(sid); 
-                    conv.add_user_message(msg);
-                }
+                conv.initDB(db, sid, user_id, "");
+                conv.setDisplayName(sid);
+                conv.add_user_message(msg);
 
                 std::string full_response;
                 std::string ret_msg = call_ai_with_tools(conv, [&](const std::string& c){ full_response += c; });
                 if (full_response.empty() && !ret_msg.empty()) full_response = ret_msg;
                 if (!full_response.empty()) {
-                    std::lock_guard<std::mutex> lock(db_mutex);
                     conv.add_assistant_message(full_response);
                 }
 
@@ -177,19 +129,12 @@ int main() {
 
         // 7. API：修改人设
         svr.Post("/api/personality", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 std::string prompt = body["prompt"];
                 
-                std::lock_guard<std::mutex> lock(db_mutex);
                 db->setSystemPrompt(sid, user_id, prompt);
                 res.set_content("{\"status\":\"ok\"}", "application/json");
             } catch (...) {
@@ -199,19 +144,12 @@ int main() {
 
         // 8. API：清空记忆
         svr.Post("/api/clear", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
 
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 
-                std::lock_guard<std::mutex> lock(db_mutex);
                 db->deleteMessages(sid, user_id);
                 db->setSummary(sid, user_id, "");
                 res.set_content("{\"status\":\"ok\"}", "application/json; charset=utf-8");
@@ -222,19 +160,12 @@ int main() {
 
         // 9. API：删除角色及其所有信息
         svr.Post("/api/delete_session", [&db](const httplib::Request& req, httplib::Response& res) {
-            std::string auth = req.get_header_value("Authorization");
-            std::string user_id = Auth::instance().verifyToken(auth);
-            if (user_id.empty()) {
-                res.status = 401;
-                res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                return;
-            }
+            const std::string user_id = "local_user";
 
             try {
                 auto body = json::parse(req.body);
                 std::string sid = body["session_id"];
                 
-                std::lock_guard<std::mutex> lock(db_mutex);
                 db->deleteSession(sid, user_id);
                 res.set_content("{\"status\":\"ok\"}", "application/json; charset=utf-8");
             } catch (...) {
@@ -244,25 +175,26 @@ int main() {
         });
 
         // 10. API：合成语音
-        svr.Post("/api/tts", [](const httplib::Request& req,httplib::Response& res) {
+        svr.Post("/api/tts", [&db](const httplib::Request& req, httplib::Response& res) {
+            const std::string user_id = "local_user";
             try {
-                std::string auth = req.get_header_value("Authorization");
-                std::string user_id = Auth::instance().verifyToken(auth);
-                if (user_id.empty()) {
-                    res.status = 401;
-                    res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                    return;
-                }
-
                 auto body = json::parse(req.body);
                 std::string text = body.value("text", "");
+                std::string sid = body.value("session_id", "");
+
                 if (text.empty()) {
                     res.status = 400;
                     res.set_content("{\"error\":\"Missing text parameter\"}", "application/json");
                     return;
                 }
 
-                std::string audio_url = synthesize_speech(API_KEY, VOICE_ID, text);
+                std::string vid = VOICE_ID;
+                if (!sid.empty()) {
+                    std::string custom_vid = db->getSessionVoiceId(sid, user_id);
+                    if (!custom_vid.empty()) vid = custom_vid;
+                }
+
+                std::string audio_url = synthesize_speech(API_KEY, vid, text);
                 if (audio_url.empty()) {
                     res.status = 500;
                     res.set_content("{\"error\":\"TTS synthesis failed\"}", "application/json");
@@ -286,13 +218,7 @@ int main() {
 
             ws_svr.WebSocket("/voice", [db](const httplib::Request& req, httplib::ws::WebSocket& ws) {
                 std::string msg;
-                std::string token = req.get_param_value("token");
-                std::string user_id = Auth::instance().verifyToken("Bearer " + token);
-                if (user_id.empty()) {
-                    std::cout << "[语音] 无效token" << std::endl;
-                    ws.close();
-                    return;
-                }
+                const std::string user_id = "local_user";
 
                 while (ws.is_open()) {
                     auto result = ws.read(msg);
@@ -317,24 +243,21 @@ int main() {
                             std::cout << "[语音通话] 用户: " << user_text << std::endl;
 
                             Conversation conv;
-                            {
-                                std::lock_guard<std::mutex> lock(db_mutex);
-                                conv.initDB(db, sid);
-                                conv.setDisplayName(sid);
-                                conv.add_user_message(user_text);
-                            }
+                            conv.initDB(db, sid, user_id, "");
+                            conv.setDisplayName(sid);
+                            conv.add_user_message(user_text);
 
                             std::string reply = call_ai_with_tools(conv, nullptr);
                             if (reply.empty()) reply = "无响应内容";
 
-                            {
-                                std::lock_guard<std::mutex> lock(db_mutex);
-                                conv.add_assistant_message(reply);
-                            }
+                            conv.add_assistant_message(reply);
 
                             // 合成语音
                             std::cout << "[语音通话] AI: " << reply << std::endl;
-                            std::string audio_url = synthesize_speech(API_KEY, VOICE_ID, reply);
+                            std::string vid = VOICE_ID;
+                            std::string custom_vid = db->getSessionVoiceId(sid, user_id);
+                            if (!custom_vid.empty()) vid = custom_vid;
+                            std::string audio_url = synthesize_speech(API_KEY, vid, reply);
                             json response = {
                                 {"type", "reply"},
                                 {"text", reply},

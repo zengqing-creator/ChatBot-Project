@@ -27,7 +27,7 @@ public:
     Conversation();
     std::shared_ptr<SQLiteDB> getDB() const { return db; }
     void setDisplayName(const std::string& name);
-    void initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid);
+    void initDB(std::shared_ptr<SQLiteDB> database, const std::string& sid, const std::string& uid, const std::string& vid);
     void add_user_message(const std::string& content);
     void flush_user_embeddings(const std::vector<float>& emb);
     void add_assistant_message(const std::string& content);

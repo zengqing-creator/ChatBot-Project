@@ -49,7 +49,7 @@ utils.cpp：call_ai_with_tools（LLM 对话）、get_embedding（向量化）、
 阿里云百炼 DashScope API
   - Chat Completions（qwen-turbo）
   - Embeddings（text-embedding-v4）
-  - TTS（qwen-audio-3.0-tts-flash）
+  - TTS（qwen-audio-3.1-tts-flash）
 ```
 
 ### （2）目录结构
@@ -59,6 +59,7 @@ ChatBot/
 ├── CMakeLists.txt          # 构建配置（含 FAISS / MKL 路径）
 ├── README.md
 ├── start.bat               # 一键启动脚本（编译 + 启动 exe + ngrok）
+├── Clone and TTS.py        # 声音复刻脚本（上传 OSS 音频后填入 URL，运行得到 voice_id）
 ├── faiss.dll               # FAISS 运行库
 ├── signal-server.js        # 历史遗留的 Node 信令服务器（语音通话已内置到 exe，无需单独启动）
 ├── package.json            # Node 依赖（ws），仅供 signal-server.js 使用
@@ -180,7 +181,8 @@ ChatBot/
 ### （8）语音合成
 
 - TTS 走 DashScope 的 `SpeechSynthesizer` 接口，提交文本与音色参数，返回一个可播放的音频 URL。
-- 请求模型为 `qwen-audio-3.0-tts-flash`，输出 `mp3`、采样率 24kHz；接口路径 `/api/v1/services/audio/tts/SpeechSynthesizer`。
+- 请求模型为 `qwen-audio-3.1-tts-flash`（**当前 TTS 为 3.1 版本**），输出 `mp3`、采样率 24kHz；接口路径 `/api/v1/services/audio/tts/SpeechSynthesizer`。
+- 自定义音色必须针对同一模型（3.1）复刻，否则 voice_id 与模型不匹配，合成会报 `InvalidParameter / Engine error`。
 - 前端在朗读前会先清洗文本：去除括号旁白、Markdown 标记、多余空白，把换行替换为句号，并截断超长内容，保证朗读自然流畅。
 - 播放使用浏览器原生 `Audio` 对象，播放中禁用按钮，结束后自动恢复状态。
 - 音色与业务空间 ID 均通过环境变量配置，便于切换。
@@ -251,7 +253,28 @@ ChatBot/
 
 ### （3）获取音色 ID（Voice ID）
 
-访问：<https://help.aliyun.com/zh/model-studio/cosyvoice-tts-http-api>，利用声音设计或声音复刻功能创建自定义音色。创建成功后，系统会返回一个形如 `qwen-audio-3.0-tts-flash-myvoice-xxxxxx` 的 ID，配置成 `DASHSCOPE_VOICE_ID`。
+> 当前项目 TTS 统一使用 **3.1 版本**模型 `qwen-audio-3.1-tts-flash`。自定义音色必须针对同一模型复刻，否则填入的 voice_id 在合成时会报错（`InvalidParameter / Engine error`）。
+
+获取自定义音色有两种方式：
+
+**方式一：控制台手动创建**
+
+访问：<https://help.aliyun.com/zh/model-studio/cosyvoice-tts-http-api>，利用声音设计或声音复刻功能创建自定义音色。创建成功后，系统会返回一个形如 `qwen-audio-3.1-tts-flash-myvoice-xxxxxx` 的 ID，配置成 `DASHSCOPE_VOICE_ID`。
+
+**方式二：用 `Clone and TTS.py` 脚本复刻**
+
+1. **准备声音样本并上传 OSS**：准备一段声音样本（MP3），上传到阿里云对象存储 OSS 的 bucket，并把该对象设为**公共读**（或使用带签名的 URL），得到公网可访问的 MP3 地址，形如 `https://<你的bucket>.oss-cn-<region>.aliyuncs.com/<文件>.mp3`。
+2. **修改脚本参数**：打开 `ChatBot/Clone and TTS.py`，改两处：
+   - 顶部 `workspace_id = "ws-xxxx"` 改成你自己的业务空间 ID（见「（2）获取业务空间 ID」）；
+   - 请求体里的 `"audio": "https://..."` 改成上一步得到的 MP3 地址；
+   - （可选）`"prefix": "myvoice"` 可改成你喜欢的音色命名前缀。
+3. **配置 API Key**：确保已配置环境变量 `DASHSCOPE_API_KEY`（脚本通过 `os.environ['DASHSCOPE_API_KEY']` 读取）。
+4. **运行脚本**：`python "Clone and TTS.py"`。脚本会调用声音复刻接口创建音色并轮询等待就绪，最后打印 `voice_id`（形如 `qwen-audio-3.1-tts-flash-myvoice-xxxxxx`）。
+5. **使用 voice_id**：把打印出的 `voice_id` 填入环境变量 `DASHSCOPE_VOICE_ID` 作为默认音色，或在创建角色时填入「专属音色 ID」字段。
+
+> 脚本中的 `target_model` 已固定为 `qwen-audio-3.1-tts-flash`，与项目合成模型保持一致，请勿改动，否则生成的 voice_id 无法被当前项目使用。
+>
+> 脚本 `base_url` 中的 `cn-beijing` 为地域段；若你的业务空间不在北京地域，需相应修改该地域。
 
 ### （4）配置 Supabase（用户认证）
 
@@ -272,7 +295,7 @@ ChatBot/
 | --- | --- | --- |
 | `DASHSCOPE_API_KEY` | 阿里云百炼 API Key | `sk-xxxxxxxxxxxxxxxx` |
 | `DASHSCOPE_WORKSPACE_ID` | 业务空间 ID（Workspace ID） | `llm-xxxxxxxx` |
-| `DASHSCOPE_VOICE_ID` | 音色 ID | `qwen-audio-3.0-tts-flash-myvoice-xxxxxx` |
+| `DASHSCOPE_VOICE_ID` | 音色 ID | `qwen-audio-3.1-tts-flash-myvoice-xxxxxx` |
 
 > 说明：`API_ENDPOINT`（`https://dashscope.aliyuncs.com`）与 `API_PATH`（`/compatible-mode/v1/chat/completions`）在 `utils.cpp` 中写死，无需配置。
 >
@@ -283,7 +306,7 @@ Windows 下配置示例（PowerShell，写入用户级环境变量，永久生�
 ```powershell
 [Environment]::SetEnvironmentVariable("DASHSCOPE_API_KEY", "sk-xxxx", "User")
 [Environment]::SetEnvironmentVariable("DASHSCOPE_WORKSPACE_ID", "llm-xxxx", "User")
-[Environment]::SetEnvironmentVariable("DASHSCOPE_VOICE_ID", "qwen-audio-3.0-tts-flash-myvoice-xxxxxx", "User")
+[Environment]::SetEnvironmentVariable("DASHSCOPE_VOICE_ID", "qwen-audio-3.1-tts-flash-myvoice-xxxxxx", "User")
 ```
 
 配置完成后需重启终端 / IDE 使环境变量生效。

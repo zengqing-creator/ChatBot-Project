@@ -12,6 +12,7 @@ SQLiteDB::~SQLiteDB() {
 }
 
 bool SQLiteDB::open() {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     int rc = sqlite3_open(db_path.c_str(), &db);
     if (rc) {
         std::cerr << "无法打开数据库: " << sqlite3_errmsg(db) << std::endl;
@@ -21,6 +22,7 @@ bool SQLiteDB::open() {
 }
 
 void SQLiteDB::close() {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     if (db) {
         sqlite3_close(db);
         db = nullptr;
@@ -28,12 +30,14 @@ void SQLiteDB::close() {
 }
 
 void SQLiteDB::createTables() {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     std::string create_sessions = R"(
         CREATE TABLE IF NOT EXISTS chat_sessions (
             session_id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             system_prompt TEXT DEFAULT '你是一个友好的中文聊天机器人',
             summary TEXT DEFAULT '',
+            voice_id TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -77,11 +81,23 @@ void SQLiteDB::createTables() {
     executeSQL(create_index);
     executeSQL(create_embeddings);
     executeSQL(create_embeddings_index);
-
     migrateEmbeddingsTable();
+
+    bool has_voice_id = false;
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, "PRAGMA table_info(chat_sessions);", -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (name && std::string(name) == "voice_id") has_voice_id = true;
+        }
+        sqlite3_finalize(stmt);
+    }
+    if (!has_voice_id)
+        executeSQL("ALTER TABLE chat_sessions ADD COLUMN voice_id TEXT DEFAULT '';");
 }
 
 void SQLiteDB::migrateEmbeddingsTable() {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     bool has_session_id = false;
     const char* pragma_sql = "PRAGMA table_info(message_embeddings);";
     sqlite3_stmt* stmt;
@@ -108,6 +124,7 @@ void SQLiteDB::migrateEmbeddingsTable() {
 }
 
 bool SQLiteDB::executeSQL(const std::string& sql) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     char* errMsg = nullptr;
     int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
     if (rc != SQLITE_OK) {
@@ -118,19 +135,49 @@ bool SQLiteDB::executeSQL(const std::string& sql) {
     return true;
 }
 
-void SQLiteDB::ensureSession(const std::string& session_id, const std::string& user_id) {
-    const char* sql = "INSERT OR IGNORE INTO chat_sessions (session_id, user_id) VALUES (?, ?);";
+void SQLiteDB::ensureSession(const std::string& session_id, const std::string& user_id, const std::string& voice_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    const char* sql = "INSERT OR IGNORE INTO chat_sessions (session_id, user_id, voice_id) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
-    
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, session_id.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, voice_id.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
+
+    if (!voice_id.empty()) {
+        const char* update_sql = "UPDATE chat_sessions SET voice_id = ? WHERE session_id = ? AND user_id = ?;";
+        if (sqlite3_prepare_v2(db, update_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, voice_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, session_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, user_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+    }
+}
+
+std::string SQLiteDB::getSessionVoiceId(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    const char* sql = "SELECT voice_id FROM chat_sessions WHERE session_id = ? AND user_id = ?;";
+    sqlite3_stmt* stmt;
+    std::string result = "";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, session_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            if (text) result = text;
+        }
+        sqlite3_finalize(stmt);
+    }
+    return result;
 }
 
 int SQLiteDB::getMaxTurnId(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "SELECT COALESCE(MAX(turn_id), 0) FROM chat_messages WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     int maxTurn = 0;
@@ -147,6 +194,7 @@ int SQLiteDB::getMaxTurnId(const std::string& session_id, const std::string& use
 }
 
 int SQLiteDB::getMaxMsgId(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "SELECT MAX(msg_id) FROM chat_messages WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     int maxId = 0;
@@ -161,6 +209,7 @@ int SQLiteDB::getMaxMsgId(const std::string& session_id, const std::string& user
 }
 
 void SQLiteDB::saveEmbedding(int msg_id, const std::string& session_id, const std::string& user_id, const std::vector<float>& embedding) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "INSERT OR REPLACE INTO message_embeddings (msg_id, session_id, user_id, embedding) VALUES (?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -175,6 +224,7 @@ void SQLiteDB::saveEmbedding(int msg_id, const std::string& session_id, const st
 
 std::vector<std::pair<int, std::string>> SQLiteDB::searchSimilar(
     const std::string& session_id, const std::string& user_id, const std::vector<float>& query_embedding, int top_k) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "SELECT msg_id, embedding FROM message_embeddings WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     std::vector<int> ids;
@@ -223,6 +273,7 @@ std::vector<std::pair<int, std::string>> SQLiteDB::searchSimilar(
 }
 
 std::vector<std::pair<std::string, std::string>> SQLiteDB::getRecentMessages(const std::string& session_id, const std::string& user_id, int limit) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     std::vector<std::pair<std::string, std::string>> result;
     const char* sql = "SELECT role, content FROM chat_messages "
                       "WHERE session_id = ? AND user_id = ? "
@@ -249,7 +300,9 @@ std::vector<std::pair<std::string, std::string>> SQLiteDB::getRecentMessages(con
     return result;
 }
 
-void SQLiteDB::saveMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content, int turn_id) {
+int SQLiteDB::saveMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content, int turn_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    int msg_id = 0;
     const char* sql = "INSERT INTO chat_messages (session_id, user_id, role, content, turn_id) VALUES (?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     
@@ -259,7 +312,8 @@ void SQLiteDB::saveMessage(const std::string& session_id, const std::string& use
         sqlite3_bind_text(stmt, 3, role.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, content.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 5, turn_id);
-        sqlite3_step(stmt);
+        if (sqlite3_step(stmt) == SQLITE_DONE)
+            msg_id = (int)sqlite3_last_insert_rowid(db);
         sqlite3_finalize(stmt);
     }
     
@@ -270,9 +324,18 @@ void SQLiteDB::saveMessage(const std::string& session_id, const std::string& use
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
+    return msg_id;
+}
+
+int SQLiteDB::appendMessage(const std::string& session_id, const std::string& user_id, const std::string& role, const std::string& content) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    int turn_id = getMaxTurnId(session_id, user_id);
+    if (role == "user") turn_id += 1;
+    return saveMessage(session_id, user_id, role, content, turn_id);
 }
 
 std::string SQLiteDB::getSystemPrompt(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "SELECT system_prompt FROM chat_sessions WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     std::string result =
@@ -305,6 +368,7 @@ std::string SQLiteDB::getSystemPrompt(const std::string& session_id, const std::
 
 // 删除该会话的向量记忆
 void SQLiteDB::deleteMessages(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql_emb = "DELETE FROM message_embeddings WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql_emb, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -324,6 +388,7 @@ void SQLiteDB::deleteMessages(const std::string& session_id, const std::string& 
 }
 
 void SQLiteDB::deleteOldMessages(const std::string& session_id, const std::string& user_id, const int keep_turns) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     int max_turn = getMaxTurnId(session_id, user_id);
     if (max_turn <= keep_turns) return;
 
@@ -350,7 +415,8 @@ void SQLiteDB::deleteOldMessages(const std::string& session_id, const std::strin
 }
 
 void SQLiteDB::setSystemPrompt(const std::string& session_id, const std::string& user_id, const std::string& prompt) {
-    ensureSession(session_id, user_id);
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    ensureSession(session_id, user_id, "");
     
     const char* sql = "UPDATE chat_sessions SET system_prompt = ? WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
@@ -365,6 +431,7 @@ void SQLiteDB::setSystemPrompt(const std::string& session_id, const std::string&
 }
 
 std::map<std::string, std::string> SQLiteDB::getAllSessions(const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     std::map<std::string, std::string> result;
     std::string sql = "SELECT session_id, system_prompt FROM chat_sessions WHERE user_id = ?";
     sqlite3_stmt* stmt;
@@ -381,6 +448,7 @@ std::map<std::string, std::string> SQLiteDB::getAllSessions(const std::string& u
 }
 
 std::string SQLiteDB::getSummary(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     const char* sql = "SELECT summary FROM chat_sessions WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     std::string result;
@@ -397,7 +465,8 @@ std::string SQLiteDB::getSummary(const std::string& session_id, const std::strin
 }
 
 void SQLiteDB::setSummary(const std::string& session_id, const std::string& user_id, const std::string& summary) {
-    ensureSession(session_id, user_id);
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
+    ensureSession(session_id, user_id, "");
     const char* sql = "UPDATE chat_sessions SET summary = ? WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -410,6 +479,7 @@ void SQLiteDB::setSummary(const std::string& session_id, const std::string& user
 }
 
 void SQLiteDB::deleteSession(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     deleteMessages(session_id, user_id);
     const char* sql = "DELETE FROM chat_sessions WHERE session_id = ? AND user_id = ?;";
     sqlite3_stmt* stmt;
@@ -422,6 +492,7 @@ void SQLiteDB::deleteSession(const std::string& session_id, const std::string& u
 }
 
 std::pair<std::string, std::string> SQLiteDB::getLastMessageAndTime(const std::string& session_id, const std::string& user_id) {
+    std::lock_guard<std::recursive_mutex> lock(mtx_);
     std::pair<std::string, std::string> result = {"暂无消息", ""};
     const char* sql = "SELECT content, datetime(timestamp, 'localtime') FROM chat_messages WHERE session_id = ? AND user_id = ? ORDER BY turn_id DESC LIMIT 1;";
     sqlite3_stmt* stmt;

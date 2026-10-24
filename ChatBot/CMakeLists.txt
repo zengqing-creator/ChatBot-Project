@@ -21,6 +21,12 @@ add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT=1)
 set(FAISS_ROOT "C:/dev/faiss-install")
 set(MKL_ROOT   "C:/Program Files (x86)/Intel/oneAPI/mkl/2025.3")
 
+# OpenSSL
+set(OPENSSL_ROOT_DIR "D:/OpenSSL-Win64")
+set(OPENSSL_INCLUDE_DIR "D:/OpenSSL-Win64/include")
+set(OPENSSL_SSL_LIBRARY "D:/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib")
+set(OPENSSL_CRYPTO_LIBRARY "D:/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib")
+
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES
@@ -68,6 +74,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${PROJECT_ROOT}/src/index.html"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
@@ -75,7 +83,10 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${PROJECT_ROOT}/faiss.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_ROOT}/src/jwks.json"
+        "D:/OpenSSL-Win64/bin/libssl-4-x64.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMENT "拷贝 index.html, faiss.dll, jwks.json"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "D:/OpenSSL-Win64/bin/libcrypto-4-x64.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMENT "拷贝 index.html, faiss.dll, OpenSSL DLL"
 )

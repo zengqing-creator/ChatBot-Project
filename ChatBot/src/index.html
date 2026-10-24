@@ -6,7 +6,6 @@
     <title>AI 多模态聊天助手 · 深夜茶室</title>
     <script src="https://fastly.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -493,41 +492,15 @@
 </head>
 
 <body class="h-screen flex items-center justify-center p-4">
-<div id="app" class="w-full h-full flex items-center justify-center p-4">
-    <!-- 登录注册界面 -->
-    <div v-if="!user" class="app-shell w-full max-w-md p-8 mx-auto">
-        <div class="text-center mb-8">
-            <h1 style="font-family:var(--font-display);font-size:30px;font-weight:700;letter-spacing:0.04em;color:var(--ink);">深夜茶室</h1>
-            <p style="font-size:13px;color:var(--ink-faint);margin-top:10px;letter-spacing:0.18em;">AI 多模态聊天助手</p>
-        </div>
-        <h2 class="modal-title">{{ authMode === 'login' ? '登录' : '注册' }}</h2>
-        <input v-model="email" type="email" placeholder="邮箱地址"
-            class="modal-input" style="height:auto;margin-bottom: 12px;">
-        <input v-model="password" type="password" placeholder="密码" 
-            class="modal-input" style="height:auto;margin-bottom: 12px;">
-
-        <button @click="handleAuth" :disabled="authLoading"
-            class="modal-btn-primary w-full">
-            {{ authLoading ? '处理中…' : (authMode === 'login' ? '登录' : '注册') }}
-        </button>
-        <button @click="authMode = authMode === 'login' ? 'register' : 'login'"
-            class="modal-btn-ghost w-full mt-3">
-            {{ authMode === 'login' ? '没有账号？去注册' : '已有账号？去登录' }}
-        </button>
-        <p v-if="authMode === 'register'" style="font-size: 12px;color:var(--ink-faint);margin-top: 12px;">
-            注册后请去邮箱点击确认链接
-        </p>
-    </div>
-
+<div id="app" class="w-full h-full flex items-center justify-center">
     <!-- 主应用界面 -->
-    <div v-else class="app-shell w-full h-full flex">
+    <div class="app-shell w-full h-full flex">
         <!-- 左侧会话列表 -->
         <div class="sidebar w-1/4 flex flex-col min-w-0">
             <div class="side-header">
                 <h2 class="side-title">消息</h2>
                 <div class="flex items-center space-x-2">
                     <button @click="createNewSession" class="add-btn" title="新建会话">+</button>
-                    <button @click="logout" class="btn" title="退出登录">退出</button>
                 </div>
             </div>
 
@@ -619,6 +592,26 @@
                     </div>
                 </div>
 
+                <!-- 模态框：新建会话 -->
+                <div v-if="showCreateModal" class="modal-backdrop">
+                    <div class="modal-card">
+                        <h3 class="modal-title">创建新角色</h3>
+                        <div class="mb-4">
+                            <label class="block text-sm text-gray-400 mb-1">角色名称 / 会话ID (必填)</label>
+                            <input v-model="newSessionId" type="text" class="input-box w-full" placeholder="例如：小美、项目经理">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm text-gray-400 mb-1">专属音色 ID (可选)</label>
+                            <input v-model="newVoiceId" type="text" class="input-box w-full" placeholder="填 qwen-audio-... 格式的音色ID">
+                            <p class="text-xs text-gray-500 mt-1">不填则使用系统默认音色。</p>
+                        </div>
+                        <div class="flex justify-end space-x-2">
+                            <button @click="showCreateModal = false" class="modal-btn-ghost">取消</button>
+                            <button @click="submitNewSession" class="modal-btn-primary">创建</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 模态框：修改人设 -->
                 <div v-if="showPersonalityModal" class="modal-backdrop">
                     <div class="modal-card">
@@ -647,32 +640,19 @@
 
 
 <script>
-    // 依赖检查：若 Vue / Supabase 未从 CDN 加载成功，直接给出明确提示，
-    // 避免页面残留原始 {{ }} 模板文本（看起来像中文乱码）与错乱布局。
-    if (typeof Vue === 'undefined' || typeof supabase === 'undefined') {
+    if (typeof Vue === 'undefined') {
         document.body.innerHTML =
             '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
             'font-family:system-ui,sans-serif;color:#e07a5f;text-align:center;padding:24px;">' +
-            '前端依赖（Vue / Supabase）加载失败，请检查网络连接后刷新重试。</div>';
+            '前端依赖（Vue）加载失败，请检查网络连接后刷新重试。</div>';
         throw new Error('CDN 依赖加载失败');
     }
 
-    const SUPABASE_URL = 'https://xemrmaqkgvcbucafoisz.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbXJtYXFrZ3ZjYnVjYWZvaXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDM1NTIsImV4cCI6MjEwNzExOTU1Mn0.sfsrT-7azC9-KavZ56TUoZp5Y67m21LXFNg-zTbdRDA';
     const API_BASE = '';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const { createApp, ref, onMounted, nextTick } = Vue;
 
     createApp({
         setup() {
-            // 登录相关
-            const user = ref(null);
-            const email = ref('');
-            const password = ref('');
-            const authMode = ref('login'); // 'login' or 'register'
-            const authLoading = ref(false);
-
             // 会话相关
             const sessions = ref([]);
             const currentSessionId = ref('');
@@ -692,66 +672,14 @@
             const ws = ref(null);
             const wsReady = ref(false);
             const isAiSpeaking = ref(false);
-
-            // 监听登录状态变化
-            supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-                user.value = session?.user ?? null;
-                if (user.value) {
-                    await fetchSessions();
-                    connectVoiceChannel();
-                }
-            });
-
-            // 登录或注册
-            const handleAuth = async () => {
-                if (!email.value || !password.value) {
-                    alert('请输入邮箱和密码');
-                    return;
-                }
-                authLoading.value = true;
-                try {
-                    const { data, error } = authMode.value === 'login'
-                        ? await supabaseClient.auth.signInWithPassword({ email: email.value, password: password.value })
-                        : await supabaseClient.auth.signUp({ email: email.value, password: password.value });
-                    if (error) { alert(error.message); return; }
-
-                    if(!data.session) { alert('请去邮箱点击确认链接后登录'); authMode.value = 'login'; return; }
-                    user.value = data.user;
-                    await fetchSessions();
-                    await connectVoiceChannel();
-                } finally {
-                    authLoading.value = false;
-                }
-            };
+            const showCreateModal = ref(false);
+            const newSessionId = ref('');
+            const newVoiceId = ref('');
 
             async function apiFetch(path, options = {}) {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                const token = session?.access_token;
                 const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-                if (token) 
-                    headers['Authorization'] = `Bearer ${token}`;
-                
-                const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-                if (res.status === 401) {
-                    await supabaseClient.auth.signOut();
-                    throw new Error('登录过期，请重新登录');
-                }
-                return res;
+                return fetch(`${API_BASE}${path}`, { ...options, headers });
             }
-
-            // 登出
-            const logout = async () => {
-                hangUpCall();
-                if (ws.value) { try { ws.value.close(); } catch(e){} ws.value = null; }
-                await supabaseClient.auth.signOut();
-                user.value = null;
-                sessions.value = [];
-                messages.value = [];
-                currentSessionId.value = '';
-                email.value = '';
-                password.value = '';
-                authMode.value = 'login';
-            };
 
             //  会话管理 
             const fetchSessions = async () => {
@@ -769,6 +697,30 @@
                 }
             };
 
+            const submitNewSession = async () => {
+                if (!newSessionId.value.trim()) {
+                    alert("会话ID不能为空");
+                    return;
+                }
+
+                try {
+                    await apiFetch('/api/sessions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            session_id: newSessionId.value.trim(),
+                            voice_id: newVoiceId.value.trim() // 把音色传给后端
+                        })
+                    });
+                    showCreateModal.value = false;
+                    currentSessionId.value = '';
+                    switchSession(newSessionId.value.trim());
+                    fetchSessions();
+                } catch (e) {
+                    alert("创建失败：" + e.message);
+                }
+            };
+
             // 切换会话
             const switchSession = async (id) => {
                 currentSessionId.value = id;
@@ -783,17 +735,9 @@
 
             // 创建新会话
             const createNewSession = () => {
-                const newId = prompt("请输入新角色/会话的ID：");
-                if (newId && newId.trim()) {
-                    apiFetch('/api/sessions', {
-                        method: 'POST',
-                        body: JSON.stringify({ session_id: newId.trim() })
-                    }).then(() => {
-                        currentSessionId.value = '';
-                        switchSession(newId.trim());
-                        fetchSessions();
-                    });
-                }
+                newSessionId.value = '';
+                newVoiceId.value = '';
+                showCreateModal.value = true;
             };
 
             // 删除会话
@@ -945,7 +889,7 @@
                     const res = await apiFetch('/api/tts', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: cleanedText })
+                        body: JSON.stringify({ text: cleanedText, session_id: currentSessionId.value })
                     });
 
                     if (!res.ok) throw new Error(`播放语音失败：${res.status}`);
@@ -971,15 +915,9 @@
 
             // 语音通话 
             // 建立WebSocket通道
-            const connectVoiceChannel = async () => {
+                        const connectVoiceChannel = async () => {
                 try {
-                    const { data : { session } } = await supabaseClient.auth.getSession();
-                    const token = session?.access_token;
-                    if (!token) {
-                        console.warn('未登录，跳过语音通道连接');
-                        return;
-                    };
-                    const wsUrl = `ws://${window.location.hostname}:8081/voice?token=${token}`;
+                    const wsUrl = `ws://${window.location.hostname}:8081/voice`;
                     ws.value = new WebSocket(wsUrl);
 
                     ws.value.onopen = () => {
@@ -1131,12 +1069,8 @@
 
             // 生命周期 
             onMounted(async() => {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session?.user) {
-                    user.value = session.user;
-                    await fetchSessions();
-                    connectVoiceChannel();
-                }
+                await fetchSessions();
+                connectVoiceChannel();
                 window.addEventListener('beforeunload', () => {
                     hangUpCall();
                     if (ws.value) ws.value.close();
@@ -1144,12 +1078,11 @@
             });
 
             return {
-                user, email, password, authMode, authLoading, handleAuth, logout,
                 sessions, currentSessionId, messages, inputMessage, isLoading,
                 showPersonalityModal, showSummaryModal, tempPersonality, currentSummary,
                 switchSession, createNewSession, sendMessage, updatePersonality,
                 clearHistory, openSummary, deleteSession, formatTime, playVoice,
-                isInCall, toggleVoiceCall
+                isInCall, toggleVoiceCall, showCreateModal, newSessionId, newVoiceId, submitNewSession
             };
         }
     }).mount('#app');
