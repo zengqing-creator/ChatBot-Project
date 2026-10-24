@@ -2,7 +2,7 @@ import os
 import time
 import requests
 
-workspace_id = "ws-ako6wjgkmddvjj99"
+workspace_id = "ws-xxxxxxxxxxxxxx"
 target_model = "qwen-audio-3.1-tts-flash"
 base_url = f"https://{workspace_id}.cn-beijing.maas.aliyuncs.com/api/v1"
 headers = {"Authorization": f"Bearer {os.environ['DASHSCOPE_API_KEY']}"}
@@ -16,7 +16,7 @@ response = requests.post(
             "action": "create_voice",
             "target_model": target_model,
             "prefix": "myvoice",
-            "audio": "https://voice-of-pianpian.oss-cn-beijing.aliyuncs.com/lppvoice.mp3?Expires=1792843624&OSSAccessKeyId=TMP.3KzNNKSBwEeKR1iE6AY6ytxeGQye5xLKvwNkwvmc5Rq9gt4x9Eq8tvedCrEq8erUxU2pxdgydhB6vdH8TB8YeUw1qzASG8&Signature=AkTQbzvPgjT4BaGIE1KmFGSJMQM%3D",
+            "audio": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         },
     },
     timeout=60,
